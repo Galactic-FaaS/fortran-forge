@@ -1,0 +1,95 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: ForGE ${{ github.ref }}
+        draft: false
+        prerelease: true
+        body: |
+          ForGE (Fortran GUI Environment) Release
+          
+          See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/${{ github.ref }}/CHANGELOG.md) for details.
+
+  build-release:
+    name: Build Release (${{ matrix.os }})
+    needs: create-release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            artifact_name: libforge-linux-x86_64
+            asset_ext: .tar.gz
+          - os: macos-latest
+            artifact_name: libforge-macos-x86_64
+            asset_ext: .tar.gz
+          - os: windows-latest
+            artifact_name: libforge-windows-x86_64
+            asset_ext: .zip
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Fortran
+      uses: fortran-lang/setup-fortran@v1
+      with:
+        compiler: gfortran
+        version: 11
+
+    - name: Setup fpm
+      uses: fortran-lang/setup-fpm@v5
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build library
+      run: fpm build --profile release
+
+    - name: Package artifacts (Unix)
+      if: runner.os != 'Windows'
+      run: |
+        mkdir -p package/lib package/include
+        cp build/gfortran_*/forge/libforge.a package/lib/ || true
+        cp build/gfortran_*/forge/*.mod package/include/ || true
+        tar czf ${{ matrix.artifact_name }}${{ matrix.asset_ext }} -C package .
+
+    - name: Package artifacts (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        mkdir package\lib package\include
+        copy build\gfortran_*\forge\libforge.a package\lib\ 
+        copy build\gfortran_*\forge\*.mod package\include\
+        Compress-Archive -Path package\* -DestinationPath ${{ matrix.artifact_name }}${{ matrix.asset_ext }}
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create-release.outputs.upload_url }}
+        asset_path: ./${{ matrix.artifact_name }}${{ matrix.asset_ext }}
+        asset_name: ${{ matrix.artifact_name }}${{ matrix.asset_ext }}
+        asset_content_type: application/octet-stream
+

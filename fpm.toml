@@ -1,0 +1,130 @@
+name = "forge"
+version = "1.0.0"
+license = "GPL-3.0-or-later"
+author = "ForGE Contributors"
+maintainer = "forge-dev@example.com"
+copyright = "2025 ForGE Contributors"
+description = "Modern Fortran GUI Environment - Cross-platform GUI library for Fortran"
+categories = ["graphics", "gui"]
+keywords = ["gui", "widgets", "graphics", "cross-platform"]
+homepage = "https://github.com/your-org/fortran-forge"
+
+[build]
+auto-executables = false
+auto-tests = true
+auto-examples = true
+
+[install]
+library = true
+
+[fortran]
+implicit-typing = false
+implicit-external = false
+source-form = "free"
+
+[library]
+source-dir = "src"
+build-script = ""
+
+# Development dependencies
+[dev-dependencies]
+# test-drive = { git = "https://github.com/fortran-lang/test-drive" }
+
+# Backend-specific dependencies (uncomment as needed)
+[dependencies]
+# For Tcl/Tk backend
+# ftcl = { git = "https://github.com/freevryheid/ftcl" }
+
+# Future: Add other backends as they become available
+
+# Build profiles
+[profile.release]
+compiler-flags = [
+    "-O3",
+    "-march=native",
+    "-ffast-math",
+    "-funroll-loops"
+]
+
+[profile.debug]
+compiler-flags = [
+    "-g",
+    "-Og", 
+    "-Wall",
+    "-Wextra",
+    "-pedantic",
+    "-fcheck=all",
+    "-fbacktrace",
+    "-std=f2018"
+]
+
+[profile.dev]
+compiler-flags = [
+    "-g",
+    "-O1",
+    "-Wall",
+    "-Wextra",
+    "-fbacktrace"
+]
+
+# Example executables
+[[example]]
+name = "hello_world"
+source-dir = "examples/hello_world"
+main = "hello_world.f90"
+
+[[example]]
+name = "button_demo"
+source-dir = "examples/button_demo"
+main = "button_demo.f90"
+
+[[example]]
+name = "menu_demo"
+source-dir = "examples/menu_demo"
+main = "menu_demo.f90"
+
+[[example]]
+name = "text_editor"
+source-dir = "examples/text_editor"
+main = "text_editor.f90"
+
+[[example]]
+name = "graphics_demo"
+source-dir = "examples/graphics_demo"
+main = "graphics_demo.f90"
+
+[[example]]
+name = "form_builder"
+source-dir = "examples/form_builder"
+main = "form_builder.f90"
+
+[[example]]
+name = "multi_window"
+source-dir = "examples/multi_window"
+main = "multi_window.f90"
+
+[[example]]
+name = "theme_showcase"
+source-dir = "examples/theme_showcase"
+main = "theme_showcase.f90"
+
+[[example]]
+name = "custom_window"
+source-dir = "examples/custom_window"
+main = "custom_window.f90"
+
+[[example]]
+name = "cairo_rendering"
+source-dir = "examples/cairo_rendering"
+main = "cairo_rendering.f90"
+
+[[example]]
+name = "interactive_button"
+source-dir = "examples/interactive_button"
+main = "interactive_button.f90"
+
+[[example]]
+name = "signals_demo"
+source-dir = "examples/signals_demo"
+main = "signals_demo.f90"
+
