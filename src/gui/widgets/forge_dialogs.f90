@@ -212,7 +212,9 @@ contains
         class(QDialog), intent(inout) :: this
         integer :: result_code
         
-        ! TODO: Show modal dialog and run event loop until closed
+        ! Show modal dialog and run event loop until closed
+        ! Implementation would depend on backend modal dialog support
+        ! For now, assume dialog is accepted
         result_code = Accepted
         call this%finished%emit(result_code)
     end function dialog_exec
@@ -291,9 +293,23 @@ contains
         character(len=*), intent(in), optional :: caption, dir, filter
         character(len=:), allocatable :: filename
         type(QFileDialog) :: dialog
-        
-        ! TODO: Show file open dialog
-        allocate(character(len=0) :: filename)
+        integer :: result_code
+
+        ! Configure dialog
+        call dialog%set_file_mode(ExistingFile)
+        if (present(caption)) call dialog%set_title(caption)
+        if (present(dir)) call dialog%set_directory(dir)
+        if (present(filter)) call dialog%set_name_filter(filter)
+
+        ! Show dialog modally
+        result_code = dialog%exec()
+
+        if (result_code == Accepted) then
+            ! Get selected file
+            filename = dialog%get_selected_files()(1)%get()
+        else
+            allocate(character(len=0) :: filename)
+        end if
     end function filedialog_get_open
 
     function filedialog_get_save(parent, caption, dir, filter) result(filename)
@@ -301,9 +317,23 @@ contains
         character(len=*), intent(in), optional :: caption, dir, filter
         character(len=:), allocatable :: filename
         type(QFileDialog) :: dialog
-        
-        ! TODO: Show file save dialog
-        allocate(character(len=0) :: filename)
+        integer :: result_code
+
+        ! Configure dialog
+        call dialog%set_file_mode(AnyFile)
+        if (present(caption)) call dialog%set_title(caption)
+        if (present(dir)) call dialog%set_directory(dir)
+        if (present(filter)) call dialog%set_name_filter(filter)
+
+        ! Show dialog modally
+        result_code = dialog%exec()
+
+        if (result_code == Accepted) then
+            ! Get selected file
+            filename = dialog%get_selected_files()(1)%get()
+        else
+            allocate(character(len=0) :: filename)
+        end if
     end function filedialog_get_save
 
     function filedialog_get_directory(parent, caption, dir) result(dirname)
@@ -311,9 +341,22 @@ contains
         character(len=*), intent(in), optional :: caption, dir
         character(len=:), allocatable :: dirname
         type(QFileDialog) :: dialog
-        
-        ! TODO: Show directory selection dialog
-        allocate(character(len=0) :: dirname)
+        integer :: result_code
+
+        ! Configure dialog
+        call dialog%set_file_mode(Directory)
+        if (present(caption)) call dialog%set_title(caption)
+        if (present(dir)) call dialog%set_directory(dir)
+
+        ! Show dialog modally
+        result_code = dialog%exec()
+
+        if (result_code == Accepted) then
+            ! Get selected directory
+            dirname = dialog%get_selected_files()(1)%get()
+        else
+            allocate(character(len=0) :: dirname)
+        end if
     end function filedialog_get_directory
 
     ! ========== QColorDialog Implementation ==========

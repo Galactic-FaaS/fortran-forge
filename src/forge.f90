@@ -113,22 +113,21 @@ contains
         ! Allocate appropriate backend
         select case (backend_id)
         case (BACKEND_TCL_TK)
-            ! TODO: Allocate Tcl/Tk backend when implemented
-            ! allocate(forge_tcl_tk_backend :: this%backend)
+            ! Tcl/Tk backend not yet implemented - could be added in future
             call local_status%set(FORGE_ERROR_NOT_IMPLEMENTED, "Tcl/Tk backend not yet implemented")
-            
+
         case (BACKEND_GTK4)
-            ! TODO: Allocate GTK4 backend when implemented
+            ! GTK4 backend not yet implemented - could be added in future
             call local_status%set(FORGE_ERROR_NOT_IMPLEMENTED, "GTK4 backend not yet implemented")
-            
+
         case (BACKEND_QT)
-            ! TODO: Allocate Qt backend when implemented
+            ! Qt backend not yet implemented - could be added in future
             call local_status%set(FORGE_ERROR_NOT_IMPLEMENTED, "Qt backend not yet implemented")
-            
+
         case (BACKEND_CUSTOM)
             ! Use custom GUI framework backend
             allocate(forge_custom_backend_t :: this%backend)
-            
+
         case default
             call local_status%set(FORGE_ERROR_INVALID_ARG, "Unknown backend type")
         end select

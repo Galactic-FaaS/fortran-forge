@@ -14,7 +14,8 @@ module forge_events
     public :: EVENT_NONE, EVENT_BUTTON_CLICKED, EVENT_WINDOW_CLOSED
     public :: EVENT_KEY_PRESSED, EVENT_KEY_RELEASED, EVENT_MOUSE_MOVED
     public :: EVENT_MOUSE_PRESSED, EVENT_MOUSE_RELEASED, EVENT_TEXT_CHANGED
-    public :: EVENT_VALUE_CHANGED, EVENT_WINDOW_RESIZED
+    public :: EVENT_VALUE_CHANGED, EVENT_WINDOW_RESIZED, EVENT_TOGGLED
+    public :: EVENT_SELECTION_CHANGED
 
     !> Event type identifiers
     integer, parameter :: EVENT_NONE = 0
@@ -28,6 +29,8 @@ module forge_events
     integer, parameter :: EVENT_TEXT_CHANGED = 8
     integer, parameter :: EVENT_VALUE_CHANGED = 9
     integer, parameter :: EVENT_WINDOW_RESIZED = 10
+    integer, parameter :: EVENT_TOGGLED = 11
+    integer, parameter :: EVENT_SELECTION_CHANGED = 12
 
     !> @brief Event type selector
     type :: forge_event_type

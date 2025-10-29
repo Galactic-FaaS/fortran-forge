@@ -7,122 +7,117 @@ on:
     branches: [ main, develop ]
 
 jobs:
-  build-fpm:
-    name: Build with fpm (${{ matrix.os }}, ${{ matrix.compiler }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        compiler: [gfortran]
-        include:
-          - os: ubuntu-latest
-            compiler: gfortran
-            version: 11
-          - os: macos-latest
-            compiler: gfortran
-            version: 12
-          - os: windows-latest
-            compiler: gfortran
-            version: 11
+  build-linux:
+    runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-    - name: Setup Fortran
-      uses: fortran-lang/setup-fortran@v1
-      with:
-        compiler: ${{ matrix.compiler }}
-        version: ${{ matrix.version }}
-
-    - name: Setup fpm
-      uses: fortran-lang/setup-fpm@v5
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Build library
-      run: fpm build --profile release
-
-    - name: Build examples
-      run: fpm build --profile release --all-examples
-      
-    # TODO: Enable when tests are implemented
-    # - name: Run tests
-    #   run: fpm test
-
-  build-cmake:
-    name: Build with CMake (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        build_type: [Release, Debug]
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Setup Fortran
-      uses: fortran-lang/setup-fortran@v1
-      with:
-        compiler: gfortran
-        version: 11
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gfortran cmake libcairo2-dev
 
     - name: Configure CMake
       run: |
-        cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-              -DFORGE_BUILD_EXAMPLES=ON \
-              -DFORGE_BUILD_TESTS=OFF \
-              -DFORGE_BACKEND_TCL_TK=OFF
+        mkdir build
+        cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DFORGE_BUILD_SHARED=ON -DFORGE_BUILD_EXAMPLES=ON -DFORGE_BUILD_TESTS=ON -DFORGE_BACKEND_CUSTOM=ON
 
     - name: Build
-      run: cmake --build build --config ${{ matrix.build_type }}
-
-    # TODO: Enable when tests are implemented
-    # - name: Test
-    #   working-directory: build
-    #   run: ctest -C ${{ matrix.build_type }} --output-on-failure
-
-  lint:
-    name: Code Quality Checks
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    # TODO: Add fprettify or findent for formatting checks
-    # - name: Check Formatting
-    #   run: fprettify --check --recursive src/
-
-    - name: Check for TODO/FIXME
       run: |
-        echo "Checking for TODO/FIXME markers..."
-        grep -rn "TODO\|FIXME" src/ || true
+        cd build
+        make -j$(nproc)
 
-  documentation:
-    name: Build Documentation
-    runs-on: ubuntu-latest
-    
+    - name: Test
+      run: |
+        cd build
+        ctest --output-on-failure
+
+    - name: Install
+      run: |
+        cd build
+        make install
+
+  build-windows:
+    runs-on: windows-latest
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-    # TODO: Setup Ford for documentation generation
-    # - name: Setup Ford
-    #   run: pip install ford
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        install: >-
+          mingw-w64-x86_64-gcc-fortran
+          mingw-w64-x86_64-cmake
+          mingw-w64-x86_64-cairo
 
-    # - name: Generate Documentation  
-    #   run: ford docs/ford_settings.md
+    - name: Configure CMake
+      shell: msys2 {0}
+      run: |
+        mkdir build
+        cd build
+        cmake .. -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release -DFORGE_BUILD_SHARED=ON -DFORGE_BUILD_EXAMPLES=ON -DFORGE_BUILD_TESTS=ON -DFORGE_BACKEND_CUSTOM=ON
 
-    # - name: Upload Documentation
-    #   uses: actions/upload-artifact@v3
-    #   with:
-    #     name: documentation
-    #     path: docs/html/
+    - name: Build
+      shell: msys2 {0}
+      run: |
+        cd build
+        mingw32-make -j$(nproc)
 
-    - name: Documentation check placeholder
-      run: echo "Documentation generation will be enabled when Ford is configured"
+    - name: Test
+      shell: msys2 {0}
+      run: |
+        cd build
+        ctest --output-on-failure
 
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        brew install gcc cmake cairo
+
+    - name: Configure CMake
+      run: |
+        mkdir build
+        cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DFORGE_BUILD_SHARED=ON -DFORGE_BUILD_EXAMPLES=ON -DFORGE_BUILD_TESTS=ON -DFORGE_BACKEND_CUSTOM=ON
+
+    - name: Build
+      run: |
+        cd build
+        make -j$(sysctl -n hw.ncpu)
+
+    - name: Test
+      run: |
+        cd build
+        ctest --output-on-failure
+
+  fpm-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install FPM
+      run: |
+        wget https://github.com/fortran-lang/fpm/releases/download/v0.9.0/fpm-0.9.0-linux-x86_64 -O fpm
+        chmod +x fpm
+        sudo mv fpm /usr/local/bin/
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gfortran
+
+    - name: Build with FPM
+      run: fpm build
+
+    - name: Test with FPM
+      run: fpm test

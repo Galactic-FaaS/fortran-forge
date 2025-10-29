@@ -28,12 +28,15 @@ build-script = ""
 
 # Development dependencies
 [dev-dependencies]
-# test-drive = { git = "https://github.com/fortran-lang/test-drive" }
+test-drive = { git = "https://github.com/fortran-lang/test-drive" }
 
 # Backend-specific dependencies (uncomment as needed)
 [dependencies]
 # For Tcl/Tk backend
 # ftcl = { git = "https://github.com/freevryheid/ftcl" }
+
+# For custom backend with Cairo graphics
+# cairo-fortran = { git = "https://github.com/vmagnin/cairo-fortran" }
 
 # Future: Add other backends as they become available
 
@@ -46,16 +49,56 @@ compiler-flags = [
     "-funroll-loops"
 ]
 
+[profile.release-windows]
+compiler-flags = [
+    "-O3",
+    "-march=native",
+    "-ffast-math",
+    "-funroll-loops",
+    "-static-libgcc",
+    "-static-libgfortran"
+]
+
+[profile.release-macos]
+compiler-flags = [
+    "-O3",
+    "-march=native",
+    "-ffast-math",
+    "-funroll-loops"
+]
+
+[profile.release-linux]
+compiler-flags = [
+    "-O3",
+    "-march=native",
+    "-ffast-math",
+    "-funroll-loops"
+]
+
 [profile.debug]
 compiler-flags = [
     "-g",
-    "-Og", 
+    "-Og",
     "-Wall",
     "-Wextra",
     "-pedantic",
     "-fcheck=all",
     "-fbacktrace",
     "-std=f2018"
+]
+
+[profile.debug-windows]
+compiler-flags = [
+    "-g",
+    "-Og",
+    "-Wall",
+    "-Wextra",
+    "-pedantic",
+    "-fcheck=all",
+    "-fbacktrace",
+    "-std=f2018",
+    "-static-libgcc",
+    "-static-libgfortran"
 ]
 
 [profile.dev]
@@ -127,4 +170,45 @@ main = "interactive_button.f90"
 name = "signals_demo"
 source-dir = "examples/signals_demo"
 main = "signals_demo.f90"
+
+[[example]]
+name = "calculator"
+source-dir = "examples/calculator"
+main = "calculator.f90"
+
+[[example]]
+name = "todo_app"
+source-dir = "examples/todo_app"
+main = "todo_app.f90"
+
+# Test executables
+[[test]]
+name = "test_types"
+source-dir = "test"
+main = "test_types.f90"
+
+[[test]]
+name = "test_signals"
+source-dir = "test"
+main = "test_signals.f90"
+
+[[test]]
+name = "test_containers"
+source-dir = "test"
+main = "test_containers.f90"
+
+[[test]]
+name = "test_string_utils"
+source-dir = "test"
+main = "test_string_utils.f90"
+
+[[test]]
+name = "test_json"
+source-dir = "test"
+main = "test_json.f90"
+
+[[test]]
+name = "test_network"
+source-dir = "test"
+main = "test_network.f90"
 

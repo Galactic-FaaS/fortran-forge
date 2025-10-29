@@ -34,14 +34,17 @@ module forge_radiobutton
     type :: QButtonGroup
         private
         type(QRadioButton), pointer :: buttons(:) => null()
+        integer, allocatable :: button_ids(:)
         integer :: count = 0
         integer :: checked_id = -1
+        logical :: exclusive = .true.
         type(signal_int) :: button_clicked
     contains
         procedure :: add_button => buttongroup_add_button
         procedure :: remove_button => buttongroup_remove_button
         procedure :: checked_button => buttongroup_checked_button
         procedure :: set_exclusive => buttongroup_set_exclusive
+        procedure :: button_toggled => buttongroup_button_toggled  ! Internal handler
     end type QButtonGroup
 
 contains
@@ -89,13 +92,70 @@ contains
         class(QButtonGroup), intent(inout) :: this
         type(QRadioButton), target, intent(in) :: button
         integer, intent(in), optional :: id
-        ! TODO: Implement button group management
+        integer :: button_id
+        type(QRadioButton), pointer :: temp_buttons(:)
+        integer, allocatable :: temp_ids(:)
+
+        ! Use provided ID or auto-assign
+        if (present(id)) then
+            button_id = id
+        else
+            button_id = this%count + 1
+        end if
+
+        ! Expand arrays if necessary
+        if (.not. associated(this%buttons)) then
+            allocate(this%buttons(5))
+            allocate(this%button_ids(5))
+        else if (this%count >= size(this%buttons)) then
+            allocate(temp_buttons(size(this%buttons) * 2))
+            allocate(temp_ids(size(this%button_ids) * 2))
+            temp_buttons(1:this%count) = this%buttons(1:this%count)
+            temp_ids(1:this%count) = this%button_ids(1:this%count)
+            deallocate(this%buttons)
+            deallocate(this%button_ids)
+            this%buttons => temp_buttons
+            this%button_ids = temp_ids
+        end if
+
+        ! Add button to group
+        this%count = this%count + 1
+        this%buttons(this%count)%text = button%text
+        this%buttons(this%count)%checked = button%checked
+        this%buttons(this%count)%button_group = c_loc(this)
+        this%button_ids(this%count) = button_id
+
+        ! Connect to toggled signal for group management
+        call this%buttons(this%count)%toggled%connect(this%button_toggled)
     end subroutine buttongroup_add_button
 
     subroutine buttongroup_remove_button(this, button)
         class(QButtonGroup), intent(inout) :: this
         type(QRadioButton), intent(in) :: button
-        ! TODO: Implement
+        integer :: i, j
+
+        if (.not. associated(this%buttons)) return
+
+        ! Find and remove the button
+        do i = 1, this%count
+            if (associated(this%buttons(i)%button_group, c_loc(this))) then
+                ! Disconnect signal
+                call this%buttons(i)%toggled%disconnect(this%button_toggled)
+
+                ! Shift remaining buttons
+                do j = i, this%count - 1
+                    this%buttons(j) = this%buttons(j + 1)
+                    this%button_ids(j) = this%button_ids(j + 1)
+                end do
+                this%count = this%count - 1
+
+                ! Update checked_id if necessary
+                if (this%checked_id == this%button_ids(i)) then
+                    this%checked_id = -1
+                end if
+                exit
+            end if
+        end do
     end subroutine buttongroup_remove_button
 
     function buttongroup_checked_button(this) result(id)
@@ -107,8 +167,34 @@ contains
     subroutine buttongroup_set_exclusive(this, exclusive)
         class(QButtonGroup), intent(inout) :: this
         logical, intent(in) :: exclusive
-        ! TODO: Implement exclusive mode
+        this%exclusive = exclusive
     end subroutine buttongroup_set_exclusive
+
+    !> @brief Internal handler for button toggles
+    subroutine buttongroup_button_toggled(this, checked)
+        class(QButtonGroup), intent(inout) :: this
+        logical, intent(in) :: checked
+        integer :: i
+
+        if (.not. this%exclusive) return
+
+        ! In exclusive mode, uncheck all other buttons when one is checked
+        if (checked) then
+            do i = 1, this%count
+                if (this%buttons(i)%checked .and. this%checked_id /= this%button_ids(i)) then
+                    call this%buttons(i)%set_checked(.false.)
+                end if
+            end do
+            ! Find which button was checked
+            do i = 1, this%count
+                if (this%buttons(i)%checked) then
+                    this%checked_id = this%button_ids(i)
+                    call this%button_clicked%emit(this%checked_id)
+                    exit
+                end if
+            end do
+        end if
+    end subroutine buttongroup_button_toggled
 
 end module forge_radiobutton
 

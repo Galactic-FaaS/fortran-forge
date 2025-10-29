@@ -9,7 +9,7 @@ module forge_cairo_bindings
     implicit none
     private
 
-    public :: cairo_t, cairo_surface_t, cairo_font_slant_t, cairo_font_weight_t
+    public :: cairo_t, cairo_surface_t, cairo_font_slant_t, cairo_font_weight_t, cairo_text_extents_t
     public :: CAIRO_FORMAT_ARGB32, CAIRO_FORMAT_RGB24
     public :: CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_SLANT_ITALIC, CAIRO_FONT_SLANT_OBLIQUE
     public :: CAIRO_FONT_WEIGHT_NORMAL, CAIRO_FONT_WEIGHT_BOLD
@@ -52,6 +52,13 @@ module forge_cairo_bindings
     type, bind(C) :: cairo_font_weight_t
         integer(c_int) :: value
     end type cairo_font_weight_t
+
+    ! Text extents structure
+    type, bind(C) :: cairo_text_extents_t
+        real(c_double) :: x_bearing, y_bearing
+        real(c_double) :: width, height
+        real(c_double) :: x_advance, y_advance
+    end type cairo_text_extents_t
 
     !> Cairo C API bindings
     interface
@@ -212,6 +219,13 @@ module forge_cairo_bindings
             type(c_ptr), value :: cr, utf8
         end subroutine cairo_show_text
 
+        subroutine cairo_text_extents(cr, utf8, extents) &
+                bind(C, name="cairo_text_extents")
+            import :: c_ptr, cairo_text_extents_t
+            type(c_ptr), value :: cr, utf8
+            type(cairo_text_extents_t) :: extents
+        end subroutine cairo_text_extents
+
         ! Transformations
         subroutine cairo_translate(cr, tx, ty) bind(C, name="cairo_translate")
             import :: c_ptr, c_double
@@ -243,7 +257,7 @@ module forge_cairo_bindings
     public :: cairo_close_path, cairo_new_path
     public :: cairo_stroke, cairo_stroke_preserve, cairo_fill, cairo_fill_preserve
     public :: cairo_paint, cairo_set_line_width
-    public :: cairo_select_font_face, cairo_set_font_size, cairo_show_text
+    public :: cairo_select_font_face, cairo_set_font_size, cairo_show_text, cairo_text_extents
     public :: cairo_translate, cairo_scale, cairo_rotate
 
 end module forge_cairo_bindings

@@ -98,9 +98,51 @@ contains
         class(forge_widget), intent(in) :: widget
         character(len=*), intent(in) :: text
         integer :: actual_index
-        
-        ! TODO: Insert at specific position
-        actual_index = this%add_tab(widget, text)
+        class(forge_widget), allocatable :: temp_pages(:)
+        type(QString), allocatable :: temp_texts(:), temp_tooltips(:)
+        integer :: i, insert_pos
+
+        ! Ensure arrays are allocated
+        if (.not. allocated(this%pages)) then
+            allocate(this%pages(10))
+            allocate(this%tab_texts(10))
+            allocate(this%tab_tooltips(10))
+        end if
+
+        ! Clamp index to valid range
+        insert_pos = max(0, min(index, this%tab_count))
+
+        ! Expand arrays if necessary
+        if (this%tab_count >= size(this%pages)) then
+            allocate(temp_pages(size(this%pages) * 2))
+            allocate(temp_texts(size(this%tab_texts) * 2))
+            allocate(temp_tooltips(size(this%tab_tooltips) * 2))
+            temp_pages(1:this%tab_count) = this%pages(1:this%tab_count)
+            temp_texts(1:this%tab_count) = this%tab_texts(1:this%tab_count)
+            temp_tooltips(1:this%tab_count) = this%tab_tooltips(1:this%tab_count)
+            call move_alloc(temp_pages, this%pages)
+            call move_alloc(temp_texts, this%tab_texts)
+            call move_alloc(temp_tooltips, this%tab_tooltips)
+        end if
+
+        ! Shift existing tabs to make room
+        do i = this%tab_count, insert_pos + 1, -1
+            this%pages(i + 1) = this%pages(i)
+            this%tab_texts(i + 1) = this%tab_texts(i)
+            this%tab_tooltips(i + 1) = this%tab_tooltips(i)
+        end do
+
+        ! Insert new tab
+        this%tab_count = this%tab_count + 1
+        this%pages(insert_pos + 1) = widget
+        call this%tab_texts(insert_pos + 1)%set(text)
+
+        ! Adjust current index if necessary
+        if (this%current_index >= insert_pos) then
+            this%current_index = this%current_index + 1
+        end if
+
+        actual_index = insert_pos
     end function tabwidget_insert_tab
 
     subroutine tabwidget_remove_tab(this, index)

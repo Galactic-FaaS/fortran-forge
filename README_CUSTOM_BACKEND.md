@@ -203,7 +203,7 @@ This is a **pure Fortran GUI application** using:
 
 ## Next Tutorial
 
-See `docs/tutorials/cairo_widgets.md` (coming soon) for:
+See the widget rendering modules in `src/backends/custom/forge_rendering.f90` for:
 - Connecting widgets to rendering
 - Handling WM_PAINT messages
 - Implementing mouse events

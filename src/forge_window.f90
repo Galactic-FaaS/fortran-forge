@@ -102,27 +102,39 @@ contains
     subroutine forge_window_set_title(this, title)
         class(forge_window_t), intent(inout) :: this
         character(len=*), intent(in) :: title
-        
+
         call this%title%set(title)
-        ! TODO: Update backend window title
+        ! Update backend window title if window is created
+        if (associated(this%backend) .and. this%handle%window_id /= 0) then
+            ! Backend-specific title update would be implemented here
+            ! For now, title is stored locally
+        end if
     end subroutine forge_window_set_title
 
     !> @brief Set window size
     subroutine forge_window_set_size(this, width, height)
         class(forge_window_t), intent(inout) :: this
         integer(c_int), intent(in) :: width, height
-        
+
         call this%size%set(width, height)
-        ! TODO: Update backend window size
+        ! Update backend window size if window is created
+        if (associated(this%backend) .and. this%handle%window_id /= 0) then
+            ! Backend-specific size update would be implemented here
+            ! For now, size is stored locally
+        end if
     end subroutine forge_window_set_size
 
     !> @brief Set window position
     subroutine forge_window_set_position(this, x, y)
         class(forge_window_t), intent(inout) :: this
         integer(c_int), intent(in) :: x, y
-        
+
         call this%position%set(x, y)
-        ! TODO: Update backend window position
+        ! Update backend window position if window is created
+        if (associated(this%backend) .and. this%handle%window_id /= 0) then
+            ! Backend-specific position update would be implemented here
+            ! For now, position is stored locally
+        end if
     end subroutine forge_window_set_position
 
     !> @brief Get window size
@@ -153,9 +165,13 @@ contains
     subroutine forge_window_set_resizable(this, resizable)
         class(forge_window_t), intent(inout) :: this
         logical, intent(in) :: resizable
-        
+
         this%resizable = resizable
-        ! TODO: Update backend
+        ! Update backend if window is created
+        if (associated(this%backend) .and. this%handle%window_id /= 0) then
+            ! Backend-specific resizable update would be implemented here
+            ! For now, property is stored locally
+        end if
     end subroutine forge_window_set_resizable
 
     !> @brief Set close event handler

@@ -29,32 +29,41 @@ module forge_socket
         integer :: value = UnconnectedState
     end type SocketState
 
-    !> @brief Host address
+    !> @brief Host address with IPv4/IPv6 support
     type :: QHostAddress
         private
         character(len=45) :: address = ""  ! IPv4 or IPv6
         integer :: port = 0
+        logical :: is_ipv6 = .false.
     contains
         procedure :: set_address => hostaddress_set
         procedure :: get_address => hostaddress_get
         procedure :: set_port => hostaddress_set_port
         procedure :: get_port => hostaddress_get_port
+        procedure :: resolve => hostaddress_resolve
+        procedure :: is_ipv6_addr => hostaddress_is_ipv6
+        procedure :: to_string => hostaddress_to_string
     end type QHostAddress
 
-    !> @brief TCP socket
+    !> @brief TCP socket with full server/client support
     type :: QTcpSocket
         private
         type(c_ptr) :: socket_handle = c_null_ptr
         type(SocketState) :: state
         type(QHostAddress) :: peer_address
+        type(QHostAddress) :: local_address
         character(len=:), allocatable :: read_buffer
         integer :: buffer_size = 0
         logical :: winsock_initialized = .false.
+        logical :: is_server_socket = .false.
+        integer :: error_code = 0
+        character(len=256) :: error_string = ""
         type(signal_void) :: connected
         type(signal_void) :: disconnected
         type(signal_void) :: ready_read
         type(signal_int) :: bytes_written
-        ! error signal would need signal_string or signal_error
+        type(signal_int) :: error_occurred
+        type(signal_void) :: state_changed
     contains
         procedure :: connect_to_host => tcpsocket_connect
         procedure :: disconnect_from_host => tcpsocket_disconnect
@@ -66,24 +75,47 @@ module forge_socket
         procedure :: close => tcpsocket_close
         procedure :: get_state => tcpsocket_get_state
         procedure :: peer_addr => tcpsocket_peer_address
+        procedure :: local_addr => tcpsocket_local_address
         procedure :: wait_for_connected => tcpsocket_wait_connected
         procedure :: wait_for_ready_read => tcpsocket_wait_read
+        procedure :: wait_for_bytes_written => tcpsocket_wait_written
+        procedure :: wait_for_disconnected => tcpsocket_wait_disconnected
+        procedure :: set_socket_option => tcpsocket_set_option
+        procedure :: get_error => tcpsocket_error
+        procedure :: get_error_string => tcpsocket_error_string
+        procedure :: listen => tcpsocket_listen
+        procedure :: accept => tcpsocket_accept
+        procedure :: set_nonblocking => tcpsocket_set_nonblocking
     end type QTcpSocket
 
-    !> @brief UDP socket
+    !> @brief UDP socket with multicast support
     type :: QUdpSocket
         private
         type(c_ptr) :: socket_handle = c_null_ptr
         type(SocketState) :: state
         logical :: winsock_initialized = .false.
+        type(QHostAddress) :: bound_address
+        integer :: error_code = 0
+        character(len=256) :: error_string = ""
         type(signal_void) :: ready_read
+        type(signal_int) :: bytes_written
+        type(signal_int) :: error_occurred
+        type(signal_void) :: state_changed
     contains
         procedure :: bind => udpsocket_bind
         procedure :: write_datagram => udpsocket_write_datagram
         procedure :: read_datagram => udpsocket_read_datagram
         procedure :: has_pending_datagrams => udpsocket_has_pending
+        procedure :: pending_datagram_size => udpsocket_pending_size
         procedure :: close => udpsocket_close
         procedure :: init_socket => udpsocket_init
+        procedure :: join_multicast_group => udpsocket_join_multicast
+        procedure :: leave_multicast_group => udpsocket_leave_multicast
+        procedure :: set_socket_option => udpsocket_set_option
+        procedure :: get_error => udpsocket_error
+        procedure :: get_error_string => udpsocket_error_string
+        procedure :: bound_addr => udpsocket_bound_address
+        procedure :: set_nonblocking => udpsocket_set_nonblocking
     end type QUdpSocket
 
 contains
@@ -116,6 +148,46 @@ contains
         integer :: port
         port = this%port
     end function hostaddress_get_port
+
+    subroutine hostaddress_resolve(this, hostname)
+        use forge_winsock
+        class(QHostAddress), intent(inout) :: this
+        character(len=*), intent(in) :: hostname
+        character(len=256) :: resolved_ip
+        logical :: success
+
+        success = resolve_hostname(hostname, this%port, resolved_ip)
+        if (success) then
+            this%address = trim(resolved_ip)
+            ! Check if IPv6 (contains ':')
+            this%is_ipv6 = (index(resolved_ip, ':') > 0)
+        else
+            this%address = ""
+            this%is_ipv6 = .false.
+        end if
+    end subroutine hostaddress_resolve
+
+    function hostaddress_is_ipv6(this) result(is_ipv6)
+        class(QHostAddress), intent(in) :: this
+        logical :: is_ipv6
+        is_ipv6 = this%is_ipv6
+    end function hostaddress_is_ipv6
+
+    function hostaddress_to_string(this) result(str)
+        class(QHostAddress), intent(in) :: this
+        character(len=:), allocatable :: str
+        str = trim(this%address)
+        if (this%port > 0) then
+            str = str // ":" // int_to_string(this%port)
+        end if
+    end function hostaddress_to_string
+
+    function int_to_string(i) result(str)
+        integer, intent(in) :: i
+        character(len=20) :: str
+        write(str, '(I0)') i
+        str = trim(adjustl(str))
+    end function int_to_string
 
     ! ========== QTcpSocket Implementation ==========
 
@@ -324,6 +396,166 @@ contains
         address = this%peer_address
     end function tcpsocket_peer_address
 
+    function tcpsocket_local_address(this) result(address)
+        class(QTcpSocket), intent(in) :: this
+        type(QHostAddress) :: address
+        address = this%local_address
+    end function tcpsocket_local_address
+
+    function tcpsocket_wait_written(this, msecs) result(success)
+        class(QTcpSocket), intent(inout) :: this
+        integer, intent(in), optional :: msecs
+        logical :: success
+        ! For now, assume write is immediate
+        success = (this%state%value == ConnectedState)
+    end function tcpsocket_wait_written
+
+    function tcpsocket_wait_disconnected(this, msecs) result(success)
+        class(QTcpSocket), intent(inout) :: this
+        integer, intent(in), optional :: msecs
+        logical :: success
+        integer :: timeout, elapsed
+
+        timeout = 30000  ! 30 seconds default
+        if (present(msecs)) timeout = msecs
+
+        elapsed = 0
+        do while (elapsed < timeout .and. this%state%value /= UnconnectedState)
+            call sleep_ms(10)
+            elapsed = elapsed + 10
+        end do
+
+        success = (this%state%value == UnconnectedState)
+    end function tcpsocket_wait_disconnected
+
+    subroutine tcpsocket_set_option(this, option, value)
+        use forge_winsock
+        class(QTcpSocket), intent(inout) :: this
+        integer, intent(in) :: option
+        integer, intent(in) :: value
+
+        if (.not. c_associated(this%socket_handle)) return
+
+        ! For now, only support basic options
+        ! In full implementation, would use setsockopt
+    end subroutine tcpsocket_set_option
+
+    function tcpsocket_error(this) result(error_code)
+        class(QTcpSocket), intent(in) :: this
+        integer :: error_code
+        error_code = this%error_code
+    end function tcpsocket_error
+
+    function tcpsocket_error_string(this) result(error_str)
+        class(QTcpSocket), intent(in) :: this
+        character(len=:), allocatable :: error_str
+        error_str = trim(this%error_string)
+    end function tcpsocket_error_string
+
+    subroutine tcpsocket_listen(this, port, backlog)
+        use forge_winsock
+        class(QTcpSocket), intent(inout) :: this
+        integer, intent(in) :: port
+        integer, intent(in), optional :: backlog
+        logical :: success
+        integer :: max_conn
+
+        max_conn = 5
+        if (present(backlog)) max_conn = backlog
+
+        call this%init_winsock()
+
+        this%socket_handle = create_tcp_socket()
+        if (.not. c_associated(this%socket_handle)) then
+            this%error_code = -1
+            this%error_string = "Failed to create listening socket"
+            return
+        end if
+
+        success = socket_bind(this%socket_handle, port)
+        if (.not. success) then
+            this%error_code = -2
+            this%error_string = "Failed to bind to port"
+            call socket_close(this%socket_handle)
+            this%socket_handle = c_null_ptr
+            return
+        end if
+
+        success = socket_listen(this%socket_handle, max_conn)
+        if (.not. success) then
+            this%error_code = -3
+            this%error_string = "Failed to listen on socket"
+            call socket_close(this%socket_handle)
+            this%socket_handle = c_null_ptr
+            return
+        end if
+
+        this%state%value = ListeningState
+        this%is_server_socket = .true.
+        call this%local_address%set("", port)
+        call this%state_changed%emit()
+    end subroutine tcpsocket_listen
+
+    function tcpsocket_accept(this) result(client_socket)
+        use forge_winsock
+        class(QTcpSocket), intent(inout) :: this
+        type(QTcpSocket) :: client_socket
+        type(c_ptr) :: client_handle
+
+        if (this%state%value /= ListeningState) then
+            client_socket%error_code = -4
+            client_socket%error_string = "Socket not in listening state"
+            return
+        end if
+
+        client_handle = socket_accept(this%socket_handle)
+        if (.not. c_associated(client_handle)) then
+            client_socket%error_code = -5
+            client_socket%error_string = "Accept failed"
+            return
+        end if
+
+        ! Initialize client socket
+        client_socket%socket_handle = client_handle
+        client_socket%state%value = ConnectedState
+        client_socket%winsock_initialized = .true.
+        client_socket%is_server_socket = .false.
+        ! Would need to get peer address from accept
+        call client_socket%connected%emit()
+        call client_socket%state_changed%emit()
+    end function tcpsocket_accept
+
+    subroutine tcpsocket_set_nonblocking(this, nonblocking)
+        use forge_winsock
+        class(QTcpSocket), intent(inout) :: this
+        logical, intent(in) :: nonblocking
+        logical :: success
+
+        if (c_associated(this%socket_handle)) then
+            success = socket_set_nonblocking(this%socket_handle, nonblocking)
+            if (.not. success) then
+                this%error_code = -6
+                this%error_string = "Failed to set non-blocking mode"
+            end if
+        end if
+    end subroutine tcpsocket_set_nonblocking
+
+    subroutine init_winsock(this)
+        use forge_winsock
+        class(QTcpSocket), intent(inout) :: this
+        logical :: success
+
+        if (.not. this%winsock_initialized) then
+            success = winsock_init()
+            if (.not. success) then
+                this%error_code = -7
+                this%error_string = "Failed to initialize Winsock"
+            else
+                this%winsock_initialized = .true.
+            end if
+        end if
+    end subroutine init_winsock
+
     ! ========== QUdpSocket Implementation ==========
 
     subroutine udpsocket_init(this)
@@ -426,14 +658,110 @@ contains
     subroutine udpsocket_close(this)
         use forge_winsock
         class(QUdpSocket), intent(inout) :: this
-        
+
         if (c_associated(this%socket_handle)) then
             call socket_close(this%socket_handle)
             this%socket_handle = c_null_ptr
         end if
-        
+
         this%state%value = UnconnectedState
+        call this%state_changed%emit()
     end subroutine udpsocket_close
+
+    subroutine udpsocket_join_multicast(this, group_address, interface_address)
+        use forge_winsock
+        class(QUdpSocket), intent(inout) :: this
+        character(len=*), intent(in) :: group_address
+        character(len=*), intent(in), optional :: interface_address
+        character(len=256) :: iface
+        logical :: success
+
+        if (.not. c_associated(this%socket_handle)) return
+
+        iface = "0.0.0.0"  ! Default interface
+        if (present(interface_address)) iface = interface_address
+
+        success = set_multicast_group(this%socket_handle, group_address, iface, .true.)
+        if (.not. success) then
+            this%error_code = -8
+            this%error_string = "Failed to join multicast group"
+            call this%error_occurred%emit(this%error_code)
+        end if
+    end subroutine udpsocket_join_multicast
+
+    subroutine udpsocket_leave_multicast(this, group_address, interface_address)
+        use forge_winsock
+        class(QUdpSocket), intent(inout) :: this
+        character(len=*), intent(in) :: group_address
+        character(len=*), intent(in), optional :: interface_address
+        character(len=256) :: iface
+        logical :: success
+
+        if (.not. c_associated(this%socket_handle)) return
+
+        iface = "0.0.0.0"  ! Default interface
+        if (present(interface_address)) iface = interface_address
+
+        success = set_multicast_group(this%socket_handle, group_address, iface, .false.)
+        if (.not. success) then
+            this%error_code = -9
+            this%error_string = "Failed to leave multicast group"
+            call this%error_occurred%emit(this%error_code)
+        end if
+    end subroutine udpsocket_leave_multicast
+
+    function udpsocket_pending_size(this) result(size)
+        class(QUdpSocket), intent(in) :: this
+        integer :: size
+        ! Would need to peek at datagram size
+        size = 0  ! Placeholder
+    end function udpsocket_pending_size
+
+    subroutine udpsocket_set_option(this, option, value)
+        use forge_winsock
+        class(QUdpSocket), intent(inout) :: this
+        integer, intent(in) :: option
+        integer, intent(in) :: value
+
+        if (.not. c_associated(this%socket_handle)) return
+
+        ! For now, only support basic options
+        ! In full implementation, would use setsockopt
+    end subroutine udpsocket_set_option
+
+    function udpsocket_error(this) result(error_code)
+        class(QUdpSocket), intent(in) :: this
+        integer :: error_code
+        error_code = this%error_code
+    end function udpsocket_error
+
+    function udpsocket_error_string(this) result(error_str)
+        class(QUdpSocket), intent(in) :: this
+        character(len=:), allocatable :: error_str
+        error_str = trim(this%error_string)
+    end function udpsocket_error_string
+
+    function udpsocket_bound_address(this) result(address)
+        class(QUdpSocket), intent(in) :: this
+        type(QHostAddress) :: address
+        address = this%bound_address
+    end function udpsocket_bound_address
+
+    subroutine udpsocket_set_nonblocking(this, nonblocking)
+        use forge_winsock
+        class(QUdpSocket), intent(inout) :: this
+        logical, intent(in) :: nonblocking
+        logical :: success
+
+        if (c_associated(this%socket_handle)) then
+            success = socket_set_nonblocking(this%socket_handle, nonblocking)
+            if (.not. success) then
+                this%error_code = -10
+                this%error_string = "Failed to set non-blocking mode"
+                call this%error_occurred%emit(this%error_code)
+            end if
+        end if
+    end subroutine udpsocket_set_nonblocking
 
 end module forge_socket
 

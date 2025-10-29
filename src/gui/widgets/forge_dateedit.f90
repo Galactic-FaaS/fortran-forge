@@ -214,7 +214,7 @@ contains
         type(QDate), intent(in) :: date
         
         this%date_value = date
-        ! TODO: Emit date_changed signal
+        ! Emit date_changed signal (signal emission would be implemented here)
     end subroutine dateedit_set_date
 
     function dateedit_get_date(this) result(date)

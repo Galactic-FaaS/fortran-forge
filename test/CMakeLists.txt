@@ -15,6 +15,10 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/test_types.f90)
     add_forge_test(test_types test_types.f90)
 endif()
 
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/test_signals.f90)
+    add_forge_test(test_signals test_signals.f90)
+endif()
+
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/test_window.f90)
     add_forge_test(test_window test_window.f90)
 endif()
@@ -25,5 +29,21 @@ endif()
 
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/test_events.f90)
     add_forge_test(test_events test_events.f90)
+endif()
+
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/test_containers.f90)
+    add_forge_test(test_containers test_containers.f90)
+endif()
+
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/test_string_utils.f90)
+    add_forge_test(test_string_utils test_string_utils.f90)
+endif()
+
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/test_json.f90)
+    add_forge_test(test_json test_json.f90)
+endif()
+
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/test_network.f90)
+    add_forge_test(test_network test_network.f90)
 endif()
 

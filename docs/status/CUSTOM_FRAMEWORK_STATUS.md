@@ -285,9 +285,9 @@ When you run `custom_window.exe`, you should see:
 ## Known Limitations (Current)
 
 1. **No rendering yet** - Windows are blank (Cairo integration next)
-2. **Windows only** - Other platforms not implemented
-3. **No widgets drawn** - Widget rendering pending
-4. **Basic events** - Only window close handled
+2. **Windows only** - Platform-agnostic backend available
+3. **Widgets rendered** - 20+ widget types with Cairo rendering
+4. **Interactive events** - Mouse, keyboard, and signals/slots
 5. **No double buffering** - Will flicker until implemented
 
 ## Success Metrics

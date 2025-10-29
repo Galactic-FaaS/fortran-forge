@@ -6,10 +6,11 @@
 
 module forge_containers
     use iso_fortran_env, only: int32, real64
+    use forge_widgets, only: forge_widget
     implicit none
     private
 
-    public :: QList_int, QList_real, QList_string
+    public :: QList_int, QList_real, QList_string, QList_widget
     public :: QMap_string_int, QStack_int, QQueue_int
 
     !> Initial capacity for dynamic arrays
@@ -103,6 +104,25 @@ module forge_containers
         procedure :: is_empty => qqueue_int_is_empty
         procedure :: size => qqueue_int_size
     end type QQueue_int
+
+    !> @brief Dynamic list of widgets (QList<forge_widget*> equivalent)
+    type :: QList_widget
+        private
+        class(forge_widget), pointer :: items(:) => null()
+        integer :: count = 0
+        integer :: capacity = 0
+    contains
+        procedure :: append => qlist_widget_append
+        procedure :: insert => qlist_widget_insert
+        procedure :: remove => qlist_widget_remove
+        procedure :: at => qlist_widget_at
+        procedure :: set => qlist_widget_set
+        procedure :: size => qlist_widget_size
+        procedure :: is_empty => qlist_widget_is_empty
+        procedure :: clear => qlist_widget_clear
+        procedure :: contains => qlist_widget_contains
+        procedure :: index_of => qlist_widget_index_of
+    end type QList_widget
 
 contains
 
@@ -285,14 +305,55 @@ contains
     subroutine qlist_string_append(this, item)
         class(QList_string), intent(inout) :: this
         character(len=*), intent(in) :: item
-        ! TODO: Proper implementation with dynamic string arrays
+        character(len=:), allocatable :: temp(:)
+        integer :: max_len, i
+
+        ! Find maximum string length in current array
+        max_len = len(item)
+        if (allocated(this%items)) then
+            do i = 1, this%count
+                max_len = max(max_len, len(this%items(i)))
+            end do
+        end if
+
+        ! Ensure capacity
+        if (.not. allocated(this%items)) then
+            allocate(character(len=max_len) :: this%items(INITIAL_CAPACITY))
+            this%capacity = INITIAL_CAPACITY
+        else if (this%count >= this%capacity) then
+            ! Double capacity and resize strings
+            allocate(character(len=max_len) :: temp(this%capacity * 2))
+            do i = 1, this%count
+                temp(i) = this%items(i)
+            end do
+            deallocate(this%items)
+            this%items = temp
+            this%capacity = this%capacity * 2
+        else if (len(this%items) < len(item)) then
+            ! Resize existing strings to accommodate new item
+            allocate(character(len=max(len(this%items), len(item))) :: temp(this%capacity))
+            do i = 1, this%count
+                temp(i) = this%items(i)
+            end do
+            deallocate(this%items)
+            this%items = temp
+        end if
+
+        this%count = this%count + 1
+        this%items(this%count) = item
     end subroutine qlist_string_append
 
     function qlist_string_at(this, index) result(item)
         class(QList_string), intent(in) :: this
         integer, intent(in) :: index
         character(len=:), allocatable :: item
-        allocate(character(len=0) :: item)
+
+        if (index >= 1 .and. index <= this%count .and. allocated(this%items)) then
+            allocate(character(len=len(this%items(index))) :: item)
+            item = trim(this%items(index))
+        else
+            allocate(character(len=0) :: item)
+        end if
     end function qlist_string_at
 
     function qlist_string_size(this) result(size_val)
@@ -312,7 +373,56 @@ contains
         class(QMap_string_int), intent(inout) :: this
         character(len=*), intent(in) :: key
         integer(int32), intent(in) :: value
-        ! TODO: Proper hash map implementation
+        character(len=:), allocatable :: temp_keys(:)
+        integer(int32), allocatable :: temp_values(:)
+        integer :: max_key_len, i
+
+        ! Find maximum key length
+        max_key_len = len(key)
+        if (allocated(this%keys)) then
+            do i = 1, this%count
+                max_key_len = max(max_key_len, len(this%keys(i)))
+            end do
+        end if
+
+        ! Check if key already exists
+        if (this%contains(key)) then
+            ! Update existing value
+            do i = 1, this%count
+                if (trim(this%keys(i)) == trim(key)) then
+                    this%values(i) = value
+                    return
+                end if
+            end do
+        end if
+
+        ! Expand arrays if necessary
+        if (.not. allocated(this%keys)) then
+            allocate(character(len=max_key_len) :: this%keys(INITIAL_CAPACITY))
+            allocate(this%values(INITIAL_CAPACITY))
+        else if (this%count >= size(this%keys)) then
+            allocate(character(len=max_key_len) :: temp_keys(size(this%keys) * 2))
+            allocate(temp_values(size(this%values) * 2))
+            do i = 1, this%count
+                temp_keys(i) = this%keys(i)
+                temp_values(i) = this%values(i)
+            end do
+            deallocate(this%keys, this%values)
+            this%keys = temp_keys
+            this%values = temp_values
+        else if (len(this%keys) < len(key)) then
+            ! Resize keys to accommodate new key
+            allocate(character(len=max(len(this%keys), len(key))) :: temp_keys(size(this%keys)))
+            do i = 1, this%count
+                temp_keys(i) = this%keys(i)
+            end do
+            deallocate(this%keys)
+            this%keys = temp_keys
+        end if
+
+        this%count = this%count + 1
+        this%keys(this%count) = key
+        this%values(this%count) = value
     end subroutine qmap_string_int_insert
 
     function qmap_string_int_get(this, key, found) result(value)
@@ -320,20 +430,57 @@ contains
         character(len=*), intent(in) :: key
         logical, intent(out), optional :: found
         integer(int32) :: value
+        integer :: i
+
         value = 0
         if (present(found)) found = .false.
+
+        if (.not. allocated(this%keys)) return
+
+        do i = 1, this%count
+            if (trim(this%keys(i)) == trim(key)) then
+                value = this%values(i)
+                if (present(found)) found = .true.
+                return
+            end if
+        end do
     end function qmap_string_int_get
 
     function qmap_string_int_contains(this, key) result(found)
         class(QMap_string_int), intent(in) :: this
         character(len=*), intent(in) :: key
         logical :: found
+        integer :: i
+
         found = .false.
+        if (.not. allocated(this%keys)) return
+
+        do i = 1, this%count
+            if (trim(this%keys(i)) == trim(key)) then
+                found = .true.
+                return
+            end if
+        end do
     end function qmap_string_int_contains
 
     subroutine qmap_string_int_remove(this, key)
         class(QMap_string_int), intent(inout) :: this
         character(len=*), intent(in) :: key
+        integer :: i, j
+
+        if (.not. allocated(this%keys)) return
+
+        do i = 1, this%count
+            if (trim(this%keys(i)) == trim(key)) then
+                ! Shift remaining elements
+                do j = i, this%count - 1
+                    this%keys(j) = this%keys(j + 1)
+                    this%values(j) = this%values(j + 1)
+                end do
+                this%count = this%count - 1
+                exit
+            end if
+        end do
     end subroutine qmap_string_int_remove
 
     function qmap_string_int_size(this) result(size_val)
@@ -456,6 +603,131 @@ contains
         integer :: size_val
         size_val = this%count
     end function qqueue_int_size
+
+    ! ========== QList_widget Implementation ==========
+
+    subroutine qlist_widget_append(this, item)
+        class(QList_widget), intent(inout) :: this
+        class(forge_widget), pointer, intent(in) :: item
+        class(forge_widget), pointer :: temp(:)
+
+        ! Ensure capacity
+        if (.not. associated(this%items)) then
+            allocate(this%items(INITIAL_CAPACITY))
+            this%capacity = INITIAL_CAPACITY
+        else if (this%count >= this%capacity) then
+            ! Double capacity
+            allocate(temp(this%capacity * 2))
+            temp(1:this%count) = this%items(1:this%count)
+            deallocate(this%items)
+            this%items => temp
+            this%capacity = this%capacity * 2
+        end if
+
+        this%count = this%count + 1
+        this%items(this%count) = item
+    end subroutine qlist_widget_append
+
+    subroutine qlist_widget_insert(this, index, item)
+        class(QList_widget), intent(inout) :: this
+        integer, intent(in) :: index
+        class(forge_widget), pointer, intent(in) :: item
+        integer :: i
+
+        call this%append(item)  ! Ensure space
+        ! Shift items
+        do i = this%count, index + 1, -1
+            this%items(i) = this%items(i-1)
+        end do
+        this%items(index) = item
+    end subroutine qlist_widget_insert
+
+    subroutine qlist_widget_remove(this, index)
+        class(QList_widget), intent(inout) :: this
+        integer, intent(in) :: index
+        integer :: i
+
+        if (index < 1 .or. index > this%count) return
+
+        do i = index, this%count - 1
+            this%items(i) = this%items(i+1)
+        end do
+        this%count = this%count - 1
+    end subroutine qlist_widget_remove
+
+    function qlist_widget_at(this, index) result(item)
+        class(QList_widget), intent(in) :: this
+        integer, intent(in) :: index
+        class(forge_widget), pointer :: item
+
+        if (index >= 1 .and. index <= this%count) then
+            item => this%items(index)
+        else
+            item => null()
+        end if
+    end function qlist_widget_at
+
+    subroutine qlist_widget_set(this, index, item)
+        class(QList_widget), intent(inout) :: this
+        integer, intent(in) :: index
+        class(forge_widget), pointer, intent(in) :: item
+
+        if (index >= 1 .and. index <= this%count) then
+            this%items(index) = item
+        end if
+    end subroutine qlist_widget_set
+
+    function qlist_widget_size(this) result(size_val)
+        class(QList_widget), intent(in) :: this
+        integer :: size_val
+
+        size_val = this%count
+    end function qlist_widget_size
+
+    function qlist_widget_is_empty(this) result(empty)
+        class(QList_widget), intent(in) :: this
+        logical :: empty
+
+        empty = (this%count == 0)
+    end function qlist_widget_is_empty
+
+    subroutine qlist_widget_clear(this)
+        class(QList_widget), intent(inout) :: this
+
+        this%count = 0
+        if (associated(this%items)) deallocate(this%items)
+        this%capacity = 0
+    end subroutine qlist_widget_clear
+
+    function qlist_widget_contains(this, item) result(found)
+        class(QList_widget), intent(in) :: this
+        class(forge_widget), pointer, intent(in) :: item
+        logical :: found
+        integer :: i
+
+        found = .false.
+        do i = 1, this%count
+            if (associated(this%items(i)%handle%ptr, item%handle%ptr)) then
+                found = .true.
+                return
+            end if
+        end do
+    end function qlist_widget_contains
+
+    function qlist_widget_index_of(this, item) result(index)
+        class(QList_widget), intent(in) :: this
+        class(forge_widget), pointer, intent(in) :: item
+        integer :: index
+        integer :: i
+
+        index = -1
+        do i = 1, this%count
+            if (associated(this%items(i)%handle%ptr, item%handle%ptr)) then
+                index = i
+                return
+            end if
+        end do
+    end function qlist_widget_index_of
 
 end module forge_containers
 

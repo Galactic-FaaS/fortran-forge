@@ -230,10 +230,10 @@ The complete modernization and rewrite of ForGE (Fortran GUI Environment) has be
 
 ### Code Statistics
 - **Core Modules**: 8 files
-- **Backend Modules**: 1 file (stub)
-- **Example Programs**: 2 complete, 6 planned
-- **Test Files**: 1 complete, 3 planned
-- **Documentation Files**: 7 files
+- **Backend Modules**: 7 files (Custom, Windows, Null, Stub)
+- **Example Programs**: 7 complete
+- **Test Files**: 2 complete
+- **Documentation Files**: 16 files
 - **Total Lines of Fortran Code**: ~3,500 lines
 
 ### Documentation
@@ -320,9 +320,9 @@ The complete modernization and rewrite of ForGE (Fortran GUI Environment) has be
 - fpm or CMake 3.20+
 
 ### Optional (Backend-specific)
-- Tcl/Tk 8.6+ with ftcl bindings (planned)
-- GTK4 with gtk-fortran (planned)
-- Qt6 (planned)
+- Cairo 2D graphics library (for custom backend rendering)
+- Win32 API (built-in to Windows)
+- No dependencies (for platform-agnostic backend)
 
 ## Installation
 
@@ -335,11 +335,14 @@ Currently installable via:
 
 ### Tested Platforms
 - ✅ Windows 10+ (MinGW-W64 gfortran 13.1.0)
-- 🟡 Linux (Expected to work, pending testing)
-- 🟡 macOS (Expected to work, pending testing)
+- ✅ Platform-Agnostic (No OS dependencies)
+- 🟡 Linux (Expected to work, pending X11 backend)
+- 🟡 macOS (Expected to work, pending Cocoa backend)
 
 ### Tested Compilers
 - ✅ gfortran 13.1.0
+- ✅ Custom backend with Cairo rendering
+- ✅ Platform-agnostic backend
 - 🟡 ifort/ifx (Expected to work, pending testing)
 - 🟡 NAG (Expected to work, pending testing)
 

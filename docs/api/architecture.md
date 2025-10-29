@@ -90,10 +90,12 @@ ForGE is designed with a layered, modular architecture that separates concerns a
 Located in `src/backends/`:
 
 - **`forge_stub.f90`** - Testing/demonstration backend
+- **`forge_custom_backend.f90`** - Custom rendering backend (Windows + Cairo)
+- **`forge_platform_windows.f90`** - Win32 platform integration
+- **`forge_platform_null.f90`** - Platform-agnostic backend
 - **`forge_tcl_tk.f90`** (planned) - Tcl/Tk backend
 - **`forge_gtk4.f90`** (planned) - GTK4 backend
 - **`forge_qt.f90`** (planned) - Qt backend
-- **`forge_custom.f90`** (planned) - Custom rendering backend
 
 ## Design Patterns
 

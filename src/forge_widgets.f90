@@ -15,6 +15,8 @@ module forge_widgets
 
     public :: forge_widget, forge_button, forge_label, forge_entry
     public :: forge_text_view, forge_progress_bar, forge_separator
+    public :: forge_slider, forge_spin_button, forge_combo_box, forge_check_box
+    public :: forge_radio_button
 
     !> Widget type identifiers
     integer, parameter, public :: WIDGET_BUTTON = 1
@@ -34,7 +36,11 @@ module forge_widgets
         type(forge_widget_handle) :: handle
         type(forge_string) :: name
         type(forge_size) :: size
+        type(forge_size) :: minimum_size
+        type(forge_size) :: maximum_size
+        type(forge_size) :: size_hint
         type(forge_position) :: position
+        type(forge_size_policy) :: size_policy
         logical :: visible = .true.
         logical :: enabled = .true.
         class(forge_backend_base), pointer :: backend => null()
@@ -45,8 +51,16 @@ module forge_widgets
         procedure :: disable => forge_widget_disable
         procedure :: set_size => forge_widget_set_size
         procedure :: set_position => forge_widget_set_position
+        procedure :: set_minimum_size => forge_widget_set_minimum_size
+        procedure :: set_maximum_size => forge_widget_set_maximum_size
+        procedure :: set_size_hint => forge_widget_set_size_hint
+        procedure :: set_size_policy => forge_widget_set_size_policy
         procedure :: get_size => forge_widget_get_size
         procedure :: get_position => forge_widget_get_position
+        procedure :: get_minimum_size => forge_widget_get_minimum_size
+        procedure :: get_maximum_size => forge_widget_get_maximum_size
+        procedure :: get_size_hint => forge_widget_get_size_hint
+        procedure :: get_size_policy => forge_widget_get_size_policy
         procedure :: is_visible => forge_widget_is_visible
         procedure :: is_enabled => forge_widget_is_enabled
         procedure :: set_name => forge_widget_set_name
@@ -127,6 +141,89 @@ module forge_widgets
         procedure :: set_vertical => forge_separator_set_vertical
     end type forge_separator
 
+    !> @brief Slider widget
+    type, extends(forge_widget) :: forge_slider
+        private
+        real(c_double) :: value = 0.0_c_double
+        real(c_double) :: minimum = 0.0_c_double
+        real(c_double) :: maximum = 100.0_c_double
+        real(c_double) :: step = 1.0_c_double
+        logical :: vertical = .false.
+        type(forge_event_handler) :: value_changed_handler
+    contains
+        procedure :: set_value => forge_slider_set_value
+        procedure :: get_value => forge_slider_get_value
+        procedure :: set_range => forge_slider_set_range
+        procedure :: set_step => forge_slider_set_step
+        procedure :: set_vertical => forge_slider_set_vertical
+        procedure :: on_value_changed => forge_slider_on_value_changed
+    end type forge_slider
+
+    !> @brief Spin button widget
+    type, extends(forge_widget) :: forge_spin_button
+        private
+        real(c_double) :: value = 0.0_c_double
+        real(c_double) :: minimum = 0.0_c_double
+        real(c_double) :: maximum = 100.0_c_double
+        real(c_double) :: step = 1.0_c_double
+        integer :: digits = 0
+        type(forge_event_handler) :: value_changed_handler
+    contains
+        procedure :: set_value => forge_spin_button_set_value
+        procedure :: get_value => forge_spin_button_get_value
+        procedure :: set_range => forge_spin_button_set_range
+        procedure :: set_step => forge_spin_button_set_step
+        procedure :: set_digits => forge_spin_button_set_digits
+        procedure :: on_value_changed => forge_spin_button_on_value_changed
+    end type forge_spin_button
+
+    !> @brief Combo box widget
+    type, extends(forge_widget) :: forge_combo_box
+        private
+        type(forge_string), allocatable :: items(:)
+        integer :: selected_index = 0
+        logical :: editable = .false.
+        type(forge_event_handler) :: selection_changed_handler
+    contains
+        procedure :: add_item => forge_combo_box_add_item
+        procedure :: remove_item => forge_combo_box_remove_item
+        procedure :: clear_items => forge_combo_box_clear_items
+        procedure :: set_selected_index => forge_combo_box_set_selected_index
+        procedure :: get_selected_index => forge_combo_box_get_selected_index
+        procedure :: get_selected_text => forge_combo_box_get_selected_text
+        procedure :: set_editable => forge_combo_box_set_editable
+        procedure :: on_selection_changed => forge_combo_box_on_selection_changed
+    end type forge_combo_box
+
+    !> @brief Check box widget
+    type, extends(forge_widget) :: forge_check_box
+        private
+        type(forge_string) :: label
+        logical :: checked = .false.
+        type(forge_event_handler) :: toggled_handler
+    contains
+        procedure :: set_label => forge_check_box_set_label
+        procedure :: get_label => forge_check_box_get_label
+        procedure :: set_checked => forge_check_box_set_checked
+        procedure :: get_checked => forge_check_box_get_checked
+        procedure :: toggle => forge_check_box_toggle
+        procedure :: on_toggled => forge_check_box_on_toggled
+    end type forge_check_box
+
+    !> @brief Radio button widget
+    type, extends(forge_widget) :: forge_radio_button
+        private
+        type(forge_string) :: label
+        logical :: checked = .false.
+        type(forge_event_handler) :: toggled_handler
+    contains
+        procedure :: set_label => forge_radio_button_set_label
+        procedure :: get_label => forge_radio_button_get_label
+        procedure :: set_checked => forge_radio_button_set_checked
+        procedure :: get_checked => forge_radio_button_get_checked
+        procedure :: on_toggled => forge_radio_button_on_toggled
+    end type forge_radio_button
+
 contains
 
     ! ========== Base Widget Methods ==========
@@ -163,6 +260,34 @@ contains
         call this%position%set(x, y)
     end subroutine forge_widget_set_position
 
+    subroutine forge_widget_set_minimum_size(this, width, height)
+        class(forge_widget), intent(inout) :: this
+        integer(c_int), intent(in) :: width, height
+        call this%minimum_size%set(width, height)
+    end subroutine forge_widget_set_minimum_size
+
+    subroutine forge_widget_set_maximum_size(this, width, height)
+        class(forge_widget), intent(inout) :: this
+        integer(c_int), intent(in) :: width, height
+        call this%maximum_size%set(width, height)
+    end subroutine forge_widget_set_maximum_size
+
+    subroutine forge_widget_set_size_hint(this, width, height)
+        class(forge_widget), intent(inout) :: this
+        integer(c_int), intent(in) :: width, height
+        call this%size_hint%set(width, height)
+    end subroutine forge_widget_set_size_hint
+
+    subroutine forge_widget_set_size_policy(this, horizontal_policy, vertical_policy, horizontal_stretch, vertical_stretch)
+        class(forge_widget), intent(inout) :: this
+        integer, intent(in) :: horizontal_policy, vertical_policy
+        integer, intent(in), optional :: horizontal_stretch, vertical_stretch
+        call this%size_policy%set_horizontal_policy(horizontal_policy)
+        call this%size_policy%set_vertical_policy(vertical_policy)
+        if (present(horizontal_stretch)) call this%size_policy%set_horizontal_stretch(horizontal_stretch)
+        if (present(vertical_stretch)) call this%size_policy%set_vertical_stretch(vertical_stretch)
+    end subroutine forge_widget_set_size_policy
+
     function forge_widget_get_size(this) result(size)
         class(forge_widget), intent(in) :: this
         type(forge_size) :: size
@@ -174,6 +299,30 @@ contains
         type(forge_position) :: position
         position = this%position
     end function forge_widget_get_position
+
+    function forge_widget_get_minimum_size(this) result(minimum_size)
+        class(forge_widget), intent(in) :: this
+        type(forge_size) :: minimum_size
+        minimum_size = this%minimum_size
+    end function forge_widget_get_minimum_size
+
+    function forge_widget_get_maximum_size(this) result(maximum_size)
+        class(forge_widget), intent(in) :: this
+        type(forge_size) :: maximum_size
+        maximum_size = this%maximum_size
+    end function forge_widget_get_maximum_size
+
+    function forge_widget_get_size_hint(this) result(size_hint)
+        class(forge_widget), intent(in) :: this
+        type(forge_size) :: size_hint
+        size_hint = this%size_hint
+    end function forge_widget_get_size_hint
+
+    function forge_widget_get_size_policy(this) result(size_policy)
+        class(forge_widget), intent(in) :: this
+        type(forge_size_policy) :: size_policy
+        size_policy = this%size_policy
+    end function forge_widget_get_size_policy
 
     function forge_widget_is_visible(this) result(visible)
         class(forge_widget), intent(in) :: this
@@ -342,6 +491,249 @@ contains
         logical, intent(in) :: vertical
         this%vertical = vertical
     end subroutine forge_separator_set_vertical
+
+    ! ========== Slider Methods ==========
+
+    subroutine forge_slider_set_value(this, value)
+        class(forge_slider), intent(inout) :: this
+        real(c_double), intent(in) :: value
+        this%value = max(this%minimum, min(this%maximum, value))
+    end subroutine forge_slider_set_value
+
+    function forge_slider_get_value(this) result(value)
+        class(forge_slider), intent(in) :: this
+        real(c_double) :: value
+        value = this%value
+    end function forge_slider_get_value
+
+    subroutine forge_slider_set_range(this, minimum, maximum)
+        class(forge_slider), intent(inout) :: this
+        real(c_double), intent(in) :: minimum, maximum
+        this%minimum = minimum
+        this%maximum = maximum
+        this%value = max(minimum, min(maximum, this%value))
+    end subroutine forge_slider_set_range
+
+    subroutine forge_slider_set_step(this, step)
+        class(forge_slider), intent(inout) :: this
+        real(c_double), intent(in) :: step
+        this%step = max(0.0_c_double, step)
+    end subroutine forge_slider_set_step
+
+    subroutine forge_slider_set_vertical(this, vertical)
+        class(forge_slider), intent(inout) :: this
+        logical, intent(in) :: vertical
+        this%vertical = vertical
+    end subroutine forge_slider_set_vertical
+
+    subroutine forge_slider_on_value_changed(this, callback)
+        class(forge_slider), intent(inout) :: this
+        procedure(event_callback_interface) :: callback
+        call this%value_changed_handler%set_callback(callback, EVENT_VALUE_CHANGED)
+    end subroutine forge_slider_on_value_changed
+
+    ! ========== Spin Button Methods ==========
+
+    subroutine forge_spin_button_set_value(this, value)
+        class(forge_spin_button), intent(inout) :: this
+        real(c_double), intent(in) :: value
+        this%value = max(this%minimum, min(this%maximum, value))
+    end subroutine forge_spin_button_set_value
+
+    function forge_spin_button_get_value(this) result(value)
+        class(forge_spin_button), intent(in) :: this
+        real(c_double) :: value
+        value = this%value
+    end function forge_spin_button_get_value
+
+    subroutine forge_spin_button_set_range(this, minimum, maximum)
+        class(forge_spin_button), intent(inout) :: this
+        real(c_double), intent(in) :: minimum, maximum
+        this%minimum = minimum
+        this%maximum = maximum
+        this%value = max(minimum, min(maximum, this%value))
+    end subroutine forge_spin_button_set_range
+
+    subroutine forge_spin_button_set_step(this, step)
+        class(forge_spin_button), intent(inout) :: this
+        real(c_double), intent(in) :: step
+        this%step = max(0.0_c_double, step)
+    end subroutine forge_spin_button_set_step
+
+    subroutine forge_spin_button_set_digits(this, digits)
+        class(forge_spin_button), intent(inout) :: this
+        integer, intent(in) :: digits
+        this%digits = max(0, digits)
+    end subroutine forge_spin_button_set_digits
+
+    subroutine forge_spin_button_on_value_changed(this, callback)
+        class(forge_spin_button), intent(inout) :: this
+        procedure(event_callback_interface) :: callback
+        call this%value_changed_handler%set_callback(callback, EVENT_VALUE_CHANGED)
+    end subroutine forge_spin_button_on_value_changed
+
+    ! ========== Combo Box Methods ==========
+
+    subroutine forge_combo_box_add_item(this, item)
+        class(forge_combo_box), intent(inout) :: this
+        character(len=*), intent(in) :: item
+        type(forge_string), allocatable :: temp(:)
+        integer :: n
+
+        if (.not. allocated(this%items)) then
+            allocate(this%items(1))
+            call this%items(1)%set(item)
+        else
+            n = size(this%items)
+            allocate(temp(n+1))
+            temp(1:n) = this%items
+            call temp(n+1)%set(item)
+            deallocate(this%items)
+            this%items = temp
+        end if
+    end subroutine forge_combo_box_add_item
+
+    subroutine forge_combo_box_remove_item(this, index)
+        class(forge_combo_box), intent(inout) :: this
+        integer, intent(in) :: index
+        type(forge_string), allocatable :: temp(:)
+        integer :: n, i
+
+        if (.not. allocated(this%items)) return
+        n = size(this%items)
+        if (index < 1 .or. index > n) return
+
+        if (n > 1) then
+            allocate(temp(n-1))
+            do i = 1, index-1
+                temp(i) = this%items(i)
+            end do
+            do i = index+1, n
+                temp(i-1) = this%items(i)
+            end do
+            deallocate(this%items)
+            this%items = temp
+        else
+            deallocate(this%items)
+        end if
+
+        if (this%selected_index >= index .and. this%selected_index > 1) then
+            this%selected_index = this%selected_index - 1
+        end if
+    end subroutine forge_combo_box_remove_item
+
+    subroutine forge_combo_box_clear_items(this)
+        class(forge_combo_box), intent(inout) :: this
+        if (allocated(this%items)) deallocate(this%items)
+        this%selected_index = 0
+    end subroutine forge_combo_box_clear_items
+
+    subroutine forge_combo_box_set_selected_index(this, index)
+        class(forge_combo_box), intent(inout) :: this
+        integer, intent(in) :: index
+        if (allocated(this%items)) then
+            this%selected_index = max(0, min(size(this%items), index))
+        else
+            this%selected_index = 0
+        end if
+    end subroutine forge_combo_box_set_selected_index
+
+    function forge_combo_box_get_selected_index(this) result(index)
+        class(forge_combo_box), intent(in) :: this
+        integer :: index
+        index = this%selected_index
+    end function forge_combo_box_get_selected_index
+
+    function forge_combo_box_get_selected_text(this) result(text)
+        class(forge_combo_box), intent(in) :: this
+        character(len=:), allocatable :: text
+        if (this%selected_index > 0 .and. allocated(this%items)) then
+            text = this%items(this%selected_index)%get()
+        else
+            text = ""
+        end if
+    end function forge_combo_box_get_selected_text
+
+    subroutine forge_combo_box_set_editable(this, editable)
+        class(forge_combo_box), intent(inout) :: this
+        logical, intent(in) :: editable
+        this%editable = editable
+    end subroutine forge_combo_box_set_editable
+
+    subroutine forge_combo_box_on_selection_changed(this, callback)
+        class(forge_combo_box), intent(inout) :: this
+        procedure(event_callback_interface) :: callback
+        call this%selection_changed_handler%set_callback(callback, 12)
+    end subroutine forge_combo_box_on_selection_changed
+
+    ! ========== Check Box Methods ==========
+
+    subroutine forge_check_box_set_label(this, label)
+        class(forge_check_box), intent(inout) :: this
+        character(len=*), intent(in) :: label
+        call this%label%set(label)
+    end subroutine forge_check_box_set_label
+
+    function forge_check_box_get_label(this) result(label)
+        class(forge_check_box), intent(in) :: this
+        character(len=:), allocatable :: label
+        label = this%label%get()
+    end function forge_check_box_get_label
+
+    subroutine forge_check_box_set_checked(this, checked)
+        class(forge_check_box), intent(inout) :: this
+        logical, intent(in) :: checked
+        this%checked = checked
+    end subroutine forge_check_box_set_checked
+
+    function forge_check_box_get_checked(this) result(checked)
+        class(forge_check_box), intent(in) :: this
+        logical :: checked
+        checked = this%checked
+    end function forge_check_box_get_checked
+
+    subroutine forge_check_box_toggle(this)
+        class(forge_check_box), intent(inout) :: this
+        this%checked = .not. this%checked
+    end subroutine forge_check_box_toggle
+
+    subroutine forge_check_box_on_toggled(this, callback)
+        class(forge_check_box), intent(inout) :: this
+        procedure(event_callback_interface) :: callback
+        call this%toggled_handler%set_callback(callback, 11)
+    end subroutine forge_check_box_on_toggled
+
+    ! ========== Radio Button Methods ==========
+
+    subroutine forge_radio_button_set_label(this, label)
+        class(forge_radio_button), intent(inout) :: this
+        character(len=*), intent(in) :: label
+        call this%label%set(label)
+    end subroutine forge_radio_button_set_label
+
+    function forge_radio_button_get_label(this) result(label)
+        class(forge_radio_button), intent(in) :: this
+        character(len=:), allocatable :: label
+        label = this%label%get()
+    end function forge_radio_button_get_label
+
+    subroutine forge_radio_button_set_checked(this, checked)
+        class(forge_radio_button), intent(inout) :: this
+        logical, intent(in) :: checked
+        this%checked = checked
+    end subroutine forge_radio_button_set_checked
+
+    function forge_radio_button_get_checked(this) result(checked)
+        class(forge_radio_button), intent(in) :: this
+        logical :: checked
+        checked = this%checked
+    end function forge_radio_button_get_checked
+
+    subroutine forge_radio_button_on_toggled(this, callback)
+        class(forge_radio_button), intent(inout) :: this
+        procedure(event_callback_interface) :: callback
+        call this%toggled_handler%set_callback(callback, 11)
+    end subroutine forge_radio_button_on_toggled
 
 end module forge_widgets
 

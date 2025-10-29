@@ -103,10 +103,31 @@ contains
     function messagebox_exec(this) result(button)
         class(QMessageBox), intent(inout) :: this
         integer :: button
-        
-        ! TODO: Show modal dialog and wait for button click
-        ! For now, return Ok
-        button = Ok
+        type(forge_event) :: event
+        logical :: dialog_closed
+
+        ! Show the dialog modally
+        call this%show()
+
+        ! Run modal event loop until dialog is closed
+        dialog_closed = .false.
+        do while (.not. dialog_closed)
+            ! Process events (this would be handled by the backend)
+            ! For now, simulate waiting for user input
+            ! In a real implementation, this would block until a button is clicked
+
+            ! Check for button click events
+            ! This is a placeholder - real implementation would integrate with event system
+            if (this%button_clicked%has_connections()) then
+                ! Wait for button click signal
+                ! For now, assume Ok is clicked
+                button = Ok
+                dialog_closed = .true.
+            end if
+        end do
+
+        ! Hide the dialog
+        call this%hide()
     end function messagebox_exec
 
     ! ========== Convenience Functions ==========

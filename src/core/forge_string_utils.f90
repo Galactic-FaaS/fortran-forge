@@ -257,9 +257,49 @@ contains
     function string_split(str, delimiter) result(parts)
         character(len=*), intent(in) :: str, delimiter
         character(len=:), allocatable :: parts(:)
-        ! TODO: Implement
-        allocate(character(len=len(str)) :: parts(1))
-        parts(1) = str
+        integer :: count, pos, start, i, delim_len
+        character(len=:), allocatable :: temp_str
+
+        delim_len = len(delimiter)
+        if (delim_len == 0) then
+            ! Empty delimiter - return single element array
+            allocate(character(len=len(str)) :: parts(1))
+            parts(1) = str
+            return
+        end if
+
+        ! Count occurrences of delimiter
+        count = 1
+        temp_str = str
+        pos = index(temp_str, delimiter)
+        do while (pos > 0)
+            count = count + 1
+            temp_str = temp_str(pos + delim_len:)
+            pos = index(temp_str, delimiter)
+        end do
+
+        ! Allocate result array
+        allocate(character(len=len(str)) :: parts(count))
+
+        ! Split the string
+        temp_str = str
+        start = 1
+        i = 1
+        pos = index(temp_str, delimiter)
+        do while (pos > 0 .and. i < count)
+            parts(i) = temp_str(start:start + pos - 1)
+            i = i + 1
+            start = start + pos + delim_len - 1
+            temp_str = temp_str(pos + delim_len:)
+            pos = index(temp_str, delimiter)
+        end do
+
+        ! Add the last part
+        if (start <= len(str)) then
+            parts(i) = str(start:)
+        else
+            parts(i) = ""
+        end if
     end function string_split
 
     function string_join(parts, delimiter) result(joined)

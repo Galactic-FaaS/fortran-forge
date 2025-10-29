@@ -42,3 +42,27 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/theme_showcase/theme_showcase.f90)
     add_forge_example(theme_showcase theme_showcase.f90)
 endif()
 
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/custom_window/custom_window.f90)
+    add_forge_example(custom_window custom_window.f90)
+endif()
+
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/cairo_rendering/cairo_rendering.f90)
+    add_forge_example(cairo_rendering cairo_rendering.f90)
+endif()
+
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/interactive_button/interactive_button.f90)
+    add_forge_example(interactive_button interactive_button.f90)
+endif()
+
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/signals_demo/signals_demo.f90)
+    add_forge_example(signals_demo signals_demo.f90)
+endif()
+
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/calculator/calculator.f90)
+    add_forge_example(calculator calculator.f90)
+endif()
+
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/todo_app/todo_app.f90)
+    add_forge_example(todo_app todo_app.f90)
+endif()
+

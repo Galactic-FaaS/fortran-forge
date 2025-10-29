@@ -14,6 +14,7 @@ module forge_thread_windows
     public :: win_create_mutex, win_lock_mutex, win_unlock_mutex, win_destroy_mutex
     public :: win_create_semaphore, win_acquire_semaphore, win_release_semaphore
     public :: win_create_event, win_wait_event, win_set_event, win_reset_event
+    public :: win_set_thread_priority
 
     ! Win32 constants
     integer(c_int), parameter :: INFINITE = -1
@@ -110,7 +111,22 @@ module forge_thread_windows
             integer(c_int) :: ResetEvent
         end function ResetEvent
 
+        function SetThreadPriority(hThread, nPriority) bind(C, name="SetThreadPriority")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: hThread
+            integer(c_int), value :: nPriority
+            integer(c_int) :: SetThreadPriority
+        end function SetThreadPriority
+
     end interface
+
+    ! Thread priority constants
+    integer(c_int), parameter :: THREAD_PRIORITY_LOWEST = -2
+    integer(c_int), parameter :: THREAD_PRIORITY_BELOW_NORMAL = -1
+    integer(c_int), parameter :: THREAD_PRIORITY_NORMAL = 0
+    integer(c_int), parameter :: THREAD_PRIORITY_ABOVE_NORMAL = 1
+    integer(c_int), parameter :: THREAD_PRIORITY_HIGHEST = 2
+    integer(c_int), parameter :: THREAD_PRIORITY_TIME_CRITICAL = 15
 
 contains
 
@@ -299,6 +315,35 @@ contains
             result = ResetEvent(event_handle)
         end if
     end subroutine win_reset_event
+
+    !> @brief Set thread priority
+    subroutine win_set_thread_priority(thread_handle, priority)
+        type(c_ptr), intent(in) :: thread_handle
+        integer, intent(in) :: priority
+        integer(c_int) :: win_priority, result
+
+        ! Map our priority levels to Windows constants
+        select case (priority)
+            case (-2)
+                win_priority = THREAD_PRIORITY_LOWEST
+            case (-1)
+                win_priority = THREAD_PRIORITY_BELOW_NORMAL
+            case (0)
+                win_priority = THREAD_PRIORITY_NORMAL
+            case (1)
+                win_priority = THREAD_PRIORITY_ABOVE_NORMAL
+            case (2)
+                win_priority = THREAD_PRIORITY_HIGHEST
+            case (15)
+                win_priority = THREAD_PRIORITY_TIME_CRITICAL
+            case default
+                win_priority = THREAD_PRIORITY_NORMAL
+        end select
+
+        if (c_associated(thread_handle)) then
+            result = SetThreadPriority(thread_handle, win_priority)
+        end if
+    end subroutine win_set_thread_priority
 
 end module forge_thread_windows
 

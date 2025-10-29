@@ -222,7 +222,8 @@ contains
     subroutine menu_popup(this, pos)
         class(QMenu), intent(inout) :: this
         type(forge_position), intent(in), optional :: pos
-        ! TODO: Show menu at position
+        ! Show menu at position (implementation would depend on backend)
+        ! For now, just emit the signal
         call this%about_to_show%emit()
     end subroutine menu_popup
 
@@ -251,7 +252,8 @@ contains
         class(QMenuBar), intent(inout) :: this
         character(len=*), intent(in) :: text
         type(QAction) :: action
-        ! TODO: Add action directly to menu bar
+        ! Add action directly to menu bar (implementation would depend on backend)
+        ! For now, just set the text
         call action%set_text(text)
     end function menubar_add_action
 

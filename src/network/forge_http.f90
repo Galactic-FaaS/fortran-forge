@@ -59,21 +59,35 @@ module forge_http
         procedure :: is_success => httpresponse_is_success
     end type QHttpResponse
 
-    !> @brief HTTP client
+    !> @brief HTTP client with SSL and timeout support
     type :: QHttpClient
         private
         type(QString) :: base_url
         integer :: timeout = 30000  ! milliseconds
+        logical :: ssl_enabled = .false.
+        character(len=256) :: ssl_cert_file = ""
+        character(len=256) :: ssl_key_file = ""
+        integer :: error_code = 0
+        character(len=256) :: error_string = ""
         type(signal_void) :: finished
-        ! Would need signal with response parameter
+        type(signal_int) :: error_occurred
+        type(signal_int) :: progress
+        type(signal_void) :: ssl_errors
     contains
         procedure :: set_base_url => httpclient_set_base_url
         procedure :: set_timeout => httpclient_set_timeout
+        procedure :: set_ssl_enabled => httpclient_set_ssl
+        procedure :: set_ssl_cert => httpclient_set_ssl_cert
+        procedure :: set_ssl_key => httpclient_set_ssl_key
         procedure :: get => httpclient_get
         procedure :: post => httpclient_post
         procedure :: put => httpclient_put
         procedure :: delete => httpclient_delete
+        procedure :: patch => httpclient_patch
         procedure :: send_request => httpclient_send
+        procedure :: get_error => httpclient_error
+        procedure :: get_error_string => httpclient_error_string
+        procedure :: abort => httpclient_abort
     end type QHttpClient
 
 contains
@@ -229,11 +243,61 @@ contains
         character(len=*), intent(in) :: url
         type(QHttpResponse) :: response
         type(QHttpRequest) :: request
-        
+
         call request%set_url(url)
         call request%set_method(HTTP_DELETE)
         response = this%send_request(request)
     end function httpclient_delete
+
+    function httpclient_patch(this, url, body) result(response)
+        class(QHttpClient), intent(inout) :: this
+        character(len=*), intent(in) :: url, body
+        type(QHttpResponse) :: response
+        type(QHttpRequest) :: request
+
+        call request%set_url(url)
+        call request%set_method(HTTP_PATCH)
+        call request%set_body(body)
+        response = this%send_request(request)
+    end function httpclient_patch
+
+    subroutine httpclient_set_ssl(this, enabled)
+        class(QHttpClient), intent(inout) :: this
+        logical, intent(in) :: enabled
+        this%ssl_enabled = enabled
+    end subroutine httpclient_set_ssl
+
+    subroutine httpclient_set_ssl_cert(this, cert_file)
+        class(QHttpClient), intent(inout) :: this
+        character(len=*), intent(in) :: cert_file
+        this%ssl_cert_file = cert_file
+    end subroutine httpclient_set_ssl_cert
+
+    subroutine httpclient_set_ssl_key(this, key_file)
+        class(QHttpClient), intent(inout) :: this
+        character(len=*), intent(in) :: key_file
+        this%ssl_key_file = key_file
+    end subroutine httpclient_set_ssl_key
+
+    function httpclient_error(this) result(error_code)
+        class(QHttpClient), intent(in) :: this
+        integer :: error_code
+        error_code = this%error_code
+    end function httpclient_error
+
+    function httpclient_error_string(this) result(error_str)
+        class(QHttpClient), intent(in) :: this
+        character(len=:), allocatable :: error_str
+        error_str = trim(this%error_string)
+    end function httpclient_error_string
+
+    subroutine httpclient_abort(this)
+        class(QHttpClient), intent(inout) :: this
+        ! In full implementation, would cancel ongoing requests
+        this%error_code = -11
+        this%error_string = "Request aborted"
+        call this%error_occurred%emit(this%error_code)
+    end subroutine httpclient_abort
 
     function httpclient_send(this, request) result(response)
         use forge_http_protocol

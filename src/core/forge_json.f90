@@ -46,13 +46,15 @@ module forge_json
         procedure :: set_bool => jsonvalue_set_bool
         procedure :: set_number => jsonvalue_set_number
         procedure :: set_string => jsonvalue_set_string
+        procedure :: set_array => jsonvalue_set_array
+        procedure :: set_object => jsonvalue_set_object
     end type QJsonValue
 
     !> @brief JSON object (key-value pairs)
     type :: QJsonObject
         private
-        type(QString), allocatable :: keys(:)
-        type(QJsonValue), allocatable :: values(:)
+        type(QString), dimension(:), allocatable :: keys
+        type(QJsonValue), dimension(:), allocatable :: values
         integer :: count = 0
     contains
         procedure :: insert => jsonobject_insert
@@ -62,6 +64,10 @@ module forge_json
         procedure :: size => jsonobject_size
         procedure :: keys => jsonobject_keys
         procedure :: is_empty => jsonobject_is_empty
+        procedure :: begin => jsonobject_begin
+        procedure :: end => jsonobject_end
+        procedure :: key_at => jsonobject_key_at
+        procedure :: value_at => jsonobject_value_at
     end type QJsonObject
 
     !> @brief JSON array
@@ -71,9 +77,13 @@ module forge_json
         integer :: count = 0
     contains
         procedure :: append => jsonarray_append
+        procedure :: insert => jsonarray_insert
+        procedure :: remove => jsonarray_remove
         procedure :: at => jsonarray_at
         procedure :: size => jsonarray_size
         procedure :: is_empty => jsonarray_is_empty
+        procedure :: begin => jsonarray_begin
+        procedure :: end => jsonarray_end
     end type QJsonArray
 
 contains
@@ -197,6 +207,22 @@ contains
         call this%string_val%set(value)
     end subroutine jsonvalue_set_string
 
+    subroutine jsonvalue_set_array(this, value)
+        class(QJsonValue), intent(inout) :: this
+        type(QJsonArray), intent(in) :: value
+        this%value_type = JSON_ARRAY
+        allocate(this%array_val)
+        this%array_val = value
+    end subroutine jsonvalue_set_array
+
+    subroutine jsonvalue_set_object(this, value)
+        class(QJsonValue), intent(inout) :: this
+        type(QJsonObject), intent(in) :: value
+        this%value_type = JSON_OBJECT
+        allocate(this%object_val)
+        this%object_val = value
+    end subroutine jsonvalue_set_object
+
     ! ========== QJsonObject Implementation ==========
 
     subroutine jsonobject_insert(this, key, value)
@@ -306,6 +332,38 @@ contains
         empty = (this%count == 0)
     end function jsonobject_is_empty
 
+    function jsonobject_begin(this) result(idx)
+        class(QJsonObject), intent(in) :: this
+        integer :: idx
+        idx = 1
+    end function jsonobject_begin
+
+    function jsonobject_end(this) result(idx)
+        class(QJsonObject), intent(in) :: this
+        integer :: idx
+        idx = this%count
+    end function jsonobject_end
+
+    function jsonobject_key_at(this, index) result(key)
+        class(QJsonObject), intent(in) :: this
+        integer, intent(in) :: index
+        type(QString) :: key
+
+        if (index >= 1 .and. index <= this%count) then
+            key = this%keys(index)
+        end if
+    end function jsonobject_key_at
+
+    function jsonobject_value_at(this, index) result(value)
+        class(QJsonObject), intent(in) :: this
+        integer, intent(in) :: index
+        type(QJsonValue) :: value
+
+        if (index >= 1 .and. index <= this%count) then
+            value = this%values(index)
+        end if
+    end function jsonobject_value_at
+
     ! ========== QJsonArray Implementation ==========
 
     subroutine jsonarray_append(this, value)
@@ -348,6 +406,59 @@ contains
         logical :: empty
         empty = (this%count == 0)
     end function jsonarray_is_empty
+
+    subroutine jsonarray_insert(this, index, value)
+        class(QJsonArray), intent(inout) :: this
+        integer, intent(in) :: index
+        type(QJsonValue), intent(in) :: value
+        type(QJsonValue), allocatable :: temp(:)
+        integer :: i
+
+        if (index < 0 .or. index > this%count) return
+
+        if (.not. allocated(this%values)) then
+            allocate(this%values(10))
+        else if (this%count >= size(this%values)) then
+            allocate(temp(size(this%values) * 2))
+            temp(1:this%count) = this%values(1:this%count)
+            call move_alloc(temp, this%values)
+        end if
+
+        ! Shift elements to make room
+        do i = this%count, index + 1, -1
+            this%values(i + 1) = this%values(i)
+        end do
+
+        this%values(index + 1) = value
+        this%count = this%count + 1
+    end subroutine jsonarray_insert
+
+    subroutine jsonarray_remove(this, index)
+        class(QJsonArray), intent(inout) :: this
+        integer, intent(in) :: index
+        integer :: i
+
+        if (index < 0 .or. index >= this%count) return
+
+        ! Shift elements to fill the gap
+        do i = index + 1, this%count - 1
+            this%values(i) = this%values(i + 1)
+        end do
+
+        this%count = this%count - 1
+    end subroutine jsonarray_remove
+
+    function jsonarray_begin(this) result(idx)
+        class(QJsonArray), intent(in) :: this
+        integer :: idx
+        idx = 0
+    end function jsonarray_begin
+
+    function jsonarray_end(this) result(idx)
+        class(QJsonArray), intent(in) :: this
+        integer :: idx
+        idx = this%count - 1
+    end function jsonarray_end
 
     ! ========== Parsing and Generation ==========
 

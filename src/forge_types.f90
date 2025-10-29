@@ -10,7 +10,7 @@ module forge_types
     private
 
     public :: c_int, c_bool, c_double, c_char, c_ptr, c_null_ptr, c_null_char
-    public :: forge_string, forge_color, forge_size, forge_position, forge_rect
+    public :: forge_string, forge_color, forge_size, forge_position, forge_rect, forge_size_policy
 
     !> Maximum length for dynamic strings
     integer, parameter, public :: FORGE_MAX_STRING_LEN = 1024
@@ -58,6 +58,19 @@ module forge_types
         type(forge_position) :: pos
         type(forge_size) :: size
     end type forge_rect
+
+    !> @brief Size policy for widgets (Qt-style)
+    type :: forge_size_policy
+        integer :: horizontal_policy = 0  !< 0=Fixed, 1=Minimum, 2=Maximum, 3=Preferred, 4=Expanding, 5=MinimumExpanding, 6=Ignored
+        integer :: vertical_policy = 0
+        integer :: horizontal_stretch = 0
+        integer :: vertical_stretch = 0
+    contains
+        procedure :: set_horizontal_policy => forge_size_policy_set_horizontal
+        procedure :: set_vertical_policy => forge_size_policy_set_vertical
+        procedure :: set_horizontal_stretch => forge_size_policy_set_horizontal_stretch
+        procedure :: set_vertical_stretch => forge_size_policy_set_vertical_stretch
+    end type forge_size_policy
 
 contains
 
@@ -157,10 +170,38 @@ contains
     subroutine forge_position_set(this, x, y)
         class(forge_position), intent(inout) :: this
         integer(c_int), intent(in) :: x, y
-        
+
         this%x = x
         this%y = y
     end subroutine forge_position_set
+
+    !> @brief Set horizontal size policy
+    subroutine forge_size_policy_set_horizontal(this, policy)
+        class(forge_size_policy), intent(inout) :: this
+        integer, intent(in) :: policy
+        this%horizontal_policy = policy
+    end subroutine forge_size_policy_set_horizontal
+
+    !> @brief Set vertical size policy
+    subroutine forge_size_policy_set_vertical(this, policy)
+        class(forge_size_policy), intent(inout) :: this
+        integer, intent(in) :: policy
+        this%vertical_policy = policy
+    end subroutine forge_size_policy_set_vertical
+
+    !> @brief Set horizontal stretch factor
+    subroutine forge_size_policy_set_horizontal_stretch(this, stretch)
+        class(forge_size_policy), intent(inout) :: this
+        integer, intent(in) :: stretch
+        this%horizontal_stretch = stretch
+    end subroutine forge_size_policy_set_horizontal_stretch
+
+    !> @brief Set vertical stretch factor
+    subroutine forge_size_policy_set_vertical_stretch(this, stretch)
+        class(forge_size_policy), intent(inout) :: this
+        integer, intent(in) :: stretch
+        this%vertical_stretch = stretch
+    end subroutine forge_size_policy_set_vertical_stretch
 
 end module forge_types
 

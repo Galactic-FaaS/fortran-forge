@@ -87,23 +87,24 @@ contains
         character(len=:), allocatable :: http_request, http_response
         character(len=:), allocatable :: method_str, line
         character(len=16384) :: buffer
-        integer :: bytes_written, bytes_read, i
-        logical :: reading_headers, success
+        integer :: bytes_written, bytes_read, i, content_length
+        logical :: reading_headers, success, chunked
         type(QString) :: response_str
-        
+        integer :: total_bytes_read
+
         ! Parse URL
         url = parse_url(request%get_url())
-        
+
         ! Connect to server
         call socket%connect_to_host(url%host, url%port)
         success = socket%wait_for_connected(5000)  ! 5 second timeout
-        
+
         if (.not. success) then
             response%status_code = 0
             call response%status_text%set("Connection failed")
             return
         end if
-        
+
         ! Build HTTP request
         select case (request%method)
         case (HTTP_GET)
@@ -119,17 +120,23 @@ contains
         case default
             method_str = "GET"
         end select
-        
+
         ! Request line
         http_request = method_str // " " // url%path
         if (len(url%query) > 0) then
             http_request = http_request // "?" // url%query
         end if
         http_request = http_request // " HTTP/1.1" // achar(13) // achar(10)
-        
+
         ! Host header (required in HTTP/1.1)
         http_request = http_request // "Host: " // url%host // achar(13) // achar(10)
-        
+
+        ! User-Agent header
+        http_request = http_request // "User-Agent: ForGE/1.0" // achar(13) // achar(10)
+
+        ! Accept header
+        http_request = http_request // "Accept: */*" // achar(13) // achar(10)
+
         ! Add user headers
         if (allocated(request%headers_keys)) then
             do i = 1, request%header_count
@@ -137,24 +144,28 @@ contains
                               request%headers_values(i)%get() // achar(13) // achar(10)
             end do
         end if
-        
+
         ! Add Content-Length if body present
         if (allocated(request%body)) then
             http_request = http_request // "Content-Length: " // &
                           int_to_string(len(request%body)) // achar(13) // achar(10)
+            ! Content-Type if not specified
+            if (.not. has_header(request, "Content-Type")) then
+                http_request = http_request // "Content-Type: application/x-www-form-urlencoded" // achar(13) // achar(10)
+            end if
         end if
-        
+
         ! Connection header
         http_request = http_request // "Connection: close" // achar(13) // achar(10)
-        
+
         ! End headers
         http_request = http_request // achar(13) // achar(10)
-        
+
         ! Add body if present
         if (allocated(request%body)) then
             http_request = http_request // request%body
         end if
-        
+
         ! Send request
         bytes_written = socket%write_data(http_request)
         if (bytes_written <= 0) then
@@ -163,28 +174,187 @@ contains
             call socket%close()
             return
         end if
-        
-        ! Read response
+
+        ! Read response headers first
         http_response = ""
+        total_bytes_read = 0
+        content_length = -1
+        chunked = .false.
+
+        ! Read until we get all headers
         do
             buffer = ""
             bytes_read = socket_recv(socket%socket_handle, buffer, size(buffer))
-            
-            if (bytes_read <= 0) exit
-            
+
+            if (bytes_read <= 0) then
+                response%status_code = 0
+                call response%status_text%set("Receive failed")
+                call socket%close()
+                return
+            end if
+
             http_response = http_response // buffer(1:bytes_read)
-            
-            ! Check if we've received complete response
-            ! (simplified - would check Content-Length or chunked encoding)
-            if (bytes_read < size(buffer)) exit
+            total_bytes_read = total_bytes_read + bytes_read
+
+            ! Check if we have complete headers (double CRLF)
+            if (index(http_response, achar(13) // achar(10) // achar(13) // achar(10)) > 0) exit
         end do
-        
+
+        ! Parse headers to determine content length or chunked encoding
+        call parse_response_headers(http_response, content_length, chunked)
+
+        ! Read body based on content length or chunked encoding
+        if (chunked) then
+            http_response = read_chunked_body(socket, http_response)
+        else if (content_length > 0) then
+            http_response = read_content_length_body(socket, http_response, content_length)
+        else
+            ! Read until connection closes
+            http_response = read_until_close(socket, http_response)
+        end if
+
         call socket%close()
-        
+
         ! Parse response
         call parse_http_response(http_response, response)
-        
+
     end function http_send_request_complete
+
+    function has_header(request, header_name) result(has_it)
+        type(QHttpRequest), intent(in) :: request
+        character(len=*), intent(in) :: header_name
+        logical :: has_it
+        integer :: i
+
+        has_it = .false.
+        if (.not. allocated(request%headers_keys)) return
+
+        do i = 1, request%header_count
+            if (request%headers_keys(i)%equals(header_name)) then
+                has_it = .true.
+                return
+            end if
+        end do
+    end function has_header
+
+    subroutine parse_response_headers(response_text, content_length, chunked)
+        character(len=*), intent(in) :: response_text
+        integer, intent(out) :: content_length
+        logical, intent(out) :: chunked
+        integer :: pos, line_start, line_end
+        character(len=:), allocatable :: line, header_name, header_value
+
+        content_length = -1
+        chunked = .false.
+
+        pos = index(response_text, achar(13) // achar(10) // achar(13) // achar(10))
+        if (pos == 0) return
+
+        line_start = index(response_text, achar(13) // achar(10)) + 2
+
+        do while (line_start < pos)
+            line_end = index(response_text(line_start:), achar(13) // achar(10))
+            if (line_end == 0) exit
+
+            line = response_text(line_start:line_start+line_end-2)
+            line_start = line_start + line_end + 1
+
+            ! Parse header
+            pos = index(line, ":")
+            if (pos > 0) then
+                header_name = trim(line(1:pos-1))
+                header_value = trim(adjustl(line(pos+1:)))
+
+                if (header_name == "Content-Length") then
+                    read(header_value, *) content_length
+                else if (header_name == "Transfer-Encoding" .and. header_value == "chunked") then
+                    chunked = .true.
+                end if
+            end if
+        end do
+    end subroutine parse_response_headers
+
+    function read_chunked_body(socket, initial_response) result(full_response)
+        type(QTcpSocket), intent(inout) :: socket
+        character(len=*), intent(in) :: initial_response
+        character(len=:), allocatable :: full_response
+        character(len=16384) :: buffer
+        integer :: bytes_read, chunk_size, pos
+        character(len=:), allocatable :: chunk_data
+
+        full_response = initial_response
+
+        do
+            ! Read chunk size line
+            buffer = ""
+            bytes_read = socket_recv(socket%socket_handle, buffer, size(buffer))
+            if (bytes_read <= 0) exit
+
+            full_response = full_response // buffer(1:bytes_read)
+
+            ! Parse chunk size (hex)
+            pos = index(buffer(1:bytes_read), achar(13) // achar(10))
+            if (pos > 0) then
+                read(buffer(1:pos-1), '(Z)', iostat=pos) chunk_size
+                if (chunk_size == 0) exit  ! Last chunk
+
+                ! Read chunk data
+                chunk_data = ""
+                do while (len(chunk_data) < chunk_size + 2)  ! +2 for CRLF
+                    buffer = ""
+                    bytes_read = socket_recv(socket%socket_handle, buffer, size(buffer))
+                    if (bytes_read <= 0) exit
+                    chunk_data = chunk_data // buffer(1:bytes_read)
+                end do
+
+                full_response = full_response // chunk_data
+            end if
+        end do
+    end function read_chunked_body
+
+    function read_content_length_body(socket, initial_response, content_length) result(full_response)
+        type(QTcpSocket), intent(inout) :: socket
+        character(len=*), intent(in) :: initial_response
+        integer, intent(in) :: content_length
+        character(len=:), allocatable :: full_response
+        character(len=16384) :: buffer
+        integer :: bytes_read, body_start, remaining
+
+        full_response = initial_response
+
+        ! Find where body starts
+        body_start = index(full_response, achar(13) // achar(10) // achar(13) // achar(10)) + 4
+        remaining = content_length - (len(full_response) - body_start + 1)
+
+        ! Read remaining body
+        do while (remaining > 0)
+            buffer = ""
+            bytes_read = socket_recv(socket%socket_handle, buffer, min(size(buffer), remaining))
+            if (bytes_read <= 0) exit
+
+            full_response = full_response // buffer(1:bytes_read)
+            remaining = remaining - bytes_read
+        end do
+    end function read_content_length_body
+
+    function read_until_close(socket, initial_response) result(full_response)
+        type(QTcpSocket), intent(inout) :: socket
+        character(len=*), intent(in) :: initial_response
+        character(len=:), allocatable :: full_response
+        character(len=16384) :: buffer
+        integer :: bytes_read
+
+        full_response = initial_response
+
+        ! Read until connection closes
+        do
+            buffer = ""
+            bytes_read = socket_recv(socket%socket_handle, buffer, size(buffer))
+            if (bytes_read <= 0) exit
+
+            full_response = full_response // buffer(1:bytes_read)
+        end do
+    end function read_until_close
 
     !> @brief Parse HTTP response
     subroutine parse_http_response(http_response, response)

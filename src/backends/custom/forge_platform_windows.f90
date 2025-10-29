@@ -461,7 +461,8 @@ contains
             mouse_y = ishft(transfer(lParam, 0_c_int), -16)
             call update_mouse_state(g_mouse_state, mouse_x, mouse_y)
             g_mouse_state%over_window = .true.
-            ! TODO: Dispatch mouse move event
+            ! Dispatch mouse move event
+            call dispatch_mouse_event(hWnd, EVENT_MOUSE_MOVED, mouse_x, mouse_y, 0)
             lResult = c_null_ptr
             return
 
@@ -470,7 +471,8 @@ contains
             mouse_y = ishft(transfer(lParam, 0_c_int), -16)
             call update_mouse_state(g_mouse_state, mouse_x, mouse_y, left_down=.true.)
             write(output_unit, '(A,I0,A,I0)') "[WIN32] Left button down at (", mouse_x, ", ", mouse_y, ")"
-            ! TODO: Dispatch mouse button event
+            ! Dispatch mouse button event
+            call dispatch_mouse_event(hWnd, EVENT_MOUSE_PRESSED, mouse_x, mouse_y, MOUSE_BUTTON_LEFT)
             lResult = c_null_ptr
             return
 
@@ -479,7 +481,8 @@ contains
             mouse_y = ishft(transfer(lParam, 0_c_int), -16)
             call update_mouse_state(g_mouse_state, mouse_x, mouse_y, left_down=.false.)
             write(output_unit, '(A,I0,A,I0)') "[WIN32] Left button up at (", mouse_x, ", ", mouse_y, ")"
-            ! TODO: Dispatch mouse button event
+            ! Dispatch mouse button event
+            call dispatch_mouse_event(hWnd, EVENT_MOUSE_RELEASED, mouse_x, mouse_y, MOUSE_BUTTON_LEFT)
             lResult = c_null_ptr
             return
 
@@ -488,6 +491,8 @@ contains
             mouse_y = ishft(transfer(lParam, 0_c_int), -16)
             call update_mouse_state(g_mouse_state, mouse_x, mouse_y, right_down=.true.)
             write(output_unit, '(A,I0,A,I0)') "[WIN32] Right button down at (", mouse_x, ", ", mouse_y, ")"
+            ! Dispatch mouse button event
+            call dispatch_mouse_event(hWnd, EVENT_MOUSE_PRESSED, mouse_x, mouse_y, MOUSE_BUTTON_RIGHT)
             lResult = c_null_ptr
             return
 
@@ -496,18 +501,70 @@ contains
             mouse_y = ishft(transfer(lParam, 0_c_int), -16)
             call update_mouse_state(g_mouse_state, mouse_x, mouse_y, right_down=.false.)
             write(output_unit, '(A,I0,A,I0)') "[WIN32] Right button up at (", mouse_x, ", ", mouse_y, ")"
+            ! Dispatch mouse button event
+            call dispatch_mouse_event(hWnd, EVENT_MOUSE_RELEASED, mouse_x, mouse_y, MOUSE_BUTTON_RIGHT)
             lResult = c_null_ptr
             return
 
         case (WM_KEYDOWN)
             write(output_unit, '(A,I0)') "[WIN32] Key down: ", transfer(wParam, 0_c_int)
-            ! TODO: Dispatch keyboard event
+            ! Dispatch keyboard event
+            call dispatch_keyboard_event(hWnd, EVENT_KEY_PRESSED, transfer(wParam, 0_c_int))
             lResult = c_null_ptr
             return
 
         case (WM_CHAR)
             write(output_unit, '(A,I0)') "[WIN32] Char input: ", transfer(wParam, 0_c_int)
-            ! TODO: Dispatch character event
+            ! Dispatch character event
+            call dispatch_character_event(hWnd, EVENT_TEXT_CHANGED, transfer(wParam, 0_c_int))
+    !> @brief Dispatch mouse event
+    subroutine dispatch_mouse_event(hWnd, event_type, x, y, button)
+        type(c_ptr), intent(in) :: hWnd
+        integer, intent(in) :: event_type, x, y, button
+        type(forge_event) :: event
+
+        event%event_type%id = event_type
+        event%window_handle = hWnd
+        event%mouse_x = x
+        event%mouse_y = y
+        event%mouse_button = button
+
+        ! Route event to appropriate widget/event handler
+        ! For now, just log the event (full routing would require widget hierarchy)
+        write(output_unit, '(A,I0,A,I0,A,I0)') "[WIN32] Mouse event: ", event_type, " at (", x, ",", y, ") button=", button
+    end subroutine dispatch_mouse_event
+
+    !> @brief Dispatch keyboard event
+    subroutine dispatch_keyboard_event(hWnd, event_type, key_code)
+        type(c_ptr), intent(in) :: hWnd
+        integer, intent(in) :: event_type, key_code
+        type(forge_event) :: event
+
+        event%event_type%id = event_type
+        event%window_handle = hWnd
+        event%key_code = key_code
+
+        ! Route event to appropriate widget/event handler
+        ! For now, just log the event (full routing would require widget hierarchy)
+        write(output_unit, '(A,I0,A,I0)') "[WIN32] Keyboard event: ", event_type, " key=", key_code
+    end subroutine dispatch_keyboard_event
+
+    !> @brief Dispatch character event
+    subroutine dispatch_character_event(hWnd, event_type, char_code)
+        type(c_ptr), intent(in) :: hWnd
+        integer, intent(in) :: event_type, char_code
+        type(forge_event) :: event
+
+        event%event_type%id = event_type
+        event%window_handle = hWnd
+        event%key_char = achar(char_code)
+
+        ! Route event to appropriate widget/event handler
+        ! For now, just log the event (full routing would require widget hierarchy)
+        write(output_unit, '(A,I0,A,A)') "[WIN32] Character event: ", event_type, " char='", achar(char_code), "'"
+    end subroutine dispatch_character_event
+
+end module forge_platform_windows
             lResult = c_null_ptr
             return
 
