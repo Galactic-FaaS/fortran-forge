@@ -1,0 +1,7 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+<qresource>
+    <file>icons/app_icon.png</file>
+    <file>translations/qt_demo_en.qm</file>
+</qresource>
+</RCC>

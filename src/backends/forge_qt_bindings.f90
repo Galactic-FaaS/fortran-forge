@@ -39,6 +39,34 @@ module forge_qt_bindings
     public :: qitemselectionmodel_has_selection, qitemselectionmodel_selected_indexes
     public :: qitemselectionmodel_selected_rows, qitemselectionmodel_selected_columns
     public :: qabstractlistmodel_new, qabstracttablemodel_new, qabstracttreemodel_new
+    ! Multimedia bindings
+    public :: qaudioformat, qaudioinput, qaudiooutput, qvideowidget, qgraphicsvideoitem
+    public :: qvideoformat, qcamera, qcameraviewfinder, qcameraimagecapture
+    public :: qmediaplayer, qmediacontent, qmediametadata, qmediarecorder
+    public :: qaudiorecorder, qvideorecorder
+    public :: qaudioformat_new, qaudioformat_set_sample_rate, qaudioformat_set_channel_count
+    public :: qaudioformat_set_sample_size, qaudioformat_set_codec, qaudioformat_sample_rate
+    public :: qaudioformat_channel_count, qaudioformat_sample_size, qaudioformat_codec
+    public :: qaudioinput_new, qaudioinput_start, qaudioinput_stop, qaudioinput_buffer_size
+    public :: qaudioinput_set_buffer_size, qaudioinput_format, qaudioinput_set_format
+    public :: qaudiooutput_new, qaudiooutput_start, qaudiooutput_stop, qaudiooutput_buffer_size
+    public :: qaudiooutput_set_buffer_size, qaudiooutput_format, qaudiooutput_set_format
+    public :: qvideowidget_new, qgraphicsvideoitem_new, qvideoformat_new
+    public :: qvideoformat_set_resolution, qvideoformat_resolution, qvideoformat_frame_rate
+    public :: qvideoformat_set_frame_rate, qvideoformat_pixel_format, qvideoformat_set_pixel_format
+    public :: qcamera_new, qcameraviewfinder_new, qcameraimagecapture_new
+    public :: qcamera_set_viewfinder, qcamera_start, qcamera_stop, qcamera_state
+    public :: qcamera_set_capture_mode, qcamera_capture_mode, qcameraviewfinder_set_camera
+    public :: qcameraimagecapture_set_camera, qcameraimagecapture_capture, qcameraimagecapture_image_captured
+    public :: qmediaplayer_new, qmediaplayer_set_media, qmediaplayer_play, qmediaplayer_pause
+    public :: qmediaplayer_stop, qmediaplayer_set_volume, qmediaplayer_volume, qmediaplayer_position
+    public :: qmediaplayer_set_position, qmediaplayer_duration, qmediaplayer_state, qmediaplayer_error
+    public :: qmediaplayer_set_video_output, qmediacontent_new, qmediametadata_title
+    public :: qmediametadata_artist, qmediametadata_album, qmediametadata_duration
+    public :: qmediarecorder_new, qmediarecorder_set_output_location, qmediarecorder_record
+    public :: qmediarecorder_stop, qmediarecorder_state, qmediarecorder_error
+    public :: qmediarecorder_set_audio_input, qmediarecorder_set_video_input
+    public :: qaudiorecorder_new, qvideorecorder_new
 
     !> Opaque Qt handles
     type :: qapplication
@@ -113,6 +141,67 @@ module forge_qt_bindings
     type :: qabstracttreemodel
         type(c_ptr) :: ptr = c_null_ptr
     end type qabstracttreemodel
+
+    !> Multimedia Types
+    type :: qaudioformat
+        type(c_ptr) :: ptr = c_null_ptr
+    end type qaudioformat
+
+    type :: qaudioinput
+        type(c_ptr) :: ptr = c_null_ptr
+    end type qaudioinput
+
+    type :: qaudiooutput
+        type(c_ptr) :: ptr = c_null_ptr
+    end type qaudiooutput
+
+    type :: qvideowidget
+        type(c_ptr) :: ptr = c_null_ptr
+    end type qvideowidget
+
+    type :: qgraphicsvideoitem
+        type(c_ptr) :: ptr = c_null_ptr
+    end type qgraphicsvideoitem
+
+    type :: qvideoformat
+        type(c_ptr) :: ptr = c_null_ptr
+    end type qvideoformat
+
+    type :: qcamera
+        type(c_ptr) :: ptr = c_null_ptr
+    end type qcamera
+
+    type :: qcameraviewfinder
+        type(c_ptr) :: ptr = c_null_ptr
+    end type qcameraviewfinder
+
+    type :: qcameraimagecapture
+        type(c_ptr) :: ptr = c_null_ptr
+    end type qcameraimagecapture
+
+    type :: qmediaplayer
+        type(c_ptr) :: ptr = c_null_ptr
+    end type qmediaplayer
+
+    type :: qmediacontent
+        type(c_ptr) :: ptr = c_null_ptr
+    end type qmediacontent
+
+    type :: qmediametadata
+        type(c_ptr) :: ptr = c_null_ptr
+    end type qmediametadata
+
+    type :: qmediarecorder
+        type(c_ptr) :: ptr = c_null_ptr
+    end type qmediarecorder
+
+    type :: qaudiorecorder
+        type(c_ptr) :: ptr = c_null_ptr
+    end type qaudiorecorder
+
+    type :: qvideorecorder
+        type(c_ptr) :: ptr = c_null_ptr
+    end type qvideorecorder
 
     !> Qt6 C API bindings (simplified wrapper functions)
     interface
@@ -575,6 +664,440 @@ module forge_qt_bindings
             type(c_ptr), value :: parent
             type(c_ptr) :: qabstracttreemodel_new
         end function qabstracttreemodel_new
+
+        !> Multimedia Bindings
+
+        !> QAudioFormat
+        function qaudioformat_new() bind(c, name="qaudioformat_new")
+            import :: c_ptr
+            type(c_ptr) :: qaudioformat_new
+        end function qaudioformat_new
+
+        subroutine qaudioformat_set_sample_rate(format, sample_rate) bind(c, name="qaudioformat_set_sample_rate")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: format
+            integer(c_int), value :: sample_rate
+        end subroutine qaudioformat_set_sample_rate
+
+        subroutine qaudioformat_set_channel_count(format, channel_count) bind(c, name="qaudioformat_set_channel_count")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: format
+            integer(c_int), value :: channel_count
+        end subroutine qaudioformat_set_channel_count
+
+        subroutine qaudioformat_set_sample_size(format, sample_size) bind(c, name="qaudioformat_set_sample_size")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: format
+            integer(c_int), value :: sample_size
+        end subroutine qaudioformat_set_sample_size
+
+        subroutine qaudioformat_set_codec(format, codec) bind(c, name="qaudioformat_set_codec")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: format
+            character(kind=c_char), dimension(*) :: codec
+        end subroutine qaudioformat_set_codec
+
+        function qaudioformat_sample_rate(format) bind(c, name="qaudioformat_sample_rate")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: format
+            integer(c_int) :: qaudioformat_sample_rate
+        end function qaudioformat_sample_rate
+
+        function qaudioformat_channel_count(format) bind(c, name="qaudioformat_channel_count")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: format
+            integer(c_int) :: qaudioformat_channel_count
+        end function qaudioformat_channel_count
+
+        function qaudioformat_sample_size(format) bind(c, name="qaudioformat_sample_size")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: format
+            integer(c_int) :: qaudioformat_sample_size
+        end function qaudioformat_sample_size
+
+        function qaudioformat_codec(format) bind(c, name="qaudioformat_codec")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: format
+            character(kind=c_char), dimension(*) :: qaudioformat_codec
+        end function qaudioformat_codec
+
+        !> QAudioInput
+        function qaudioinput_new(format, parent) bind(c, name="qaudioinput_new")
+            import :: c_ptr
+            type(c_ptr), value :: format, parent
+            type(c_ptr) :: qaudioinput_new
+        end function qaudioinput_new
+
+        subroutine qaudioinput_start(input, device) bind(c, name="qaudioinput_start")
+            import :: c_ptr
+            type(c_ptr), value :: input, device
+        end subroutine qaudioinput_start
+
+        subroutine qaudioinput_stop(input) bind(c, name="qaudioinput_stop")
+            import :: c_ptr
+            type(c_ptr), value :: input
+        end subroutine qaudioinput_stop
+
+        function qaudioinput_buffer_size(input) bind(c, name="qaudioinput_buffer_size")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: input
+            integer(c_int) :: qaudioinput_buffer_size
+        end function qaudioinput_buffer_size
+
+        subroutine qaudioinput_set_buffer_size(input, buffer_size) bind(c, name="qaudioinput_set_buffer_size")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: input
+            integer(c_int), value :: buffer_size
+        end subroutine qaudioinput_set_buffer_size
+
+        function qaudioinput_format(input) bind(c, name="qaudioinput_format")
+            import :: c_ptr
+            type(c_ptr), value :: input
+            type(c_ptr) :: qaudioinput_format
+        end function qaudioinput_format
+
+        subroutine qaudioinput_set_format(input, format) bind(c, name="qaudioinput_set_format")
+            import :: c_ptr
+            type(c_ptr), value :: input, format
+        end subroutine qaudioinput_set_format
+
+        !> QAudioOutput
+        function qaudiooutput_new(format, parent) bind(c, name="qaudiooutput_new")
+            import :: c_ptr
+            type(c_ptr), value :: format, parent
+            type(c_ptr) :: qaudiooutput_new
+        end function qaudiooutput_new
+
+        subroutine qaudiooutput_start(output, device) bind(c, name="qaudiooutput_start")
+            import :: c_ptr
+            type(c_ptr), value :: output, device
+        end subroutine qaudiooutput_start
+
+        subroutine qaudiooutput_stop(output) bind(c, name="qaudiooutput_stop")
+            import :: c_ptr
+            type(c_ptr), value :: output
+        end subroutine qaudiooutput_stop
+
+        function qaudiooutput_buffer_size(output) bind(c, name="qaudiooutput_buffer_size")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: output
+            integer(c_int) :: qaudiooutput_buffer_size
+        end function qaudiooutput_buffer_size
+
+        subroutine qaudiooutput_set_buffer_size(output, buffer_size) bind(c, name="qaudiooutput_set_buffer_size")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: output
+            integer(c_int), value :: buffer_size
+        end subroutine qaudiooutput_set_buffer_size
+
+        function qaudiooutput_format(output) bind(c, name="qaudiooutput_format")
+            import :: c_ptr
+            type(c_ptr), value :: output
+            type(c_ptr) :: qaudiooutput_format
+        end function qaudiooutput_format
+
+        subroutine qaudiooutput_set_format(output, format) bind(c, name="qaudiooutput_set_format")
+            import :: c_ptr
+            type(c_ptr), value :: output, format
+        end subroutine qaudiooutput_set_format
+
+        !> QVideoWidget
+        function qvideowidget_new(parent) bind(c, name="qvideowidget_new")
+            import :: c_ptr
+            type(c_ptr), value :: parent
+            type(c_ptr) :: qvideowidget_new
+        end function qvideowidget_new
+
+        !> QGraphicsVideoItem
+        function qgraphicsvideoitem_new(parent) bind(c, name="qgraphicsvideoitem_new")
+            import :: c_ptr
+            type(c_ptr), value :: parent
+            type(c_ptr) :: qgraphicsvideoitem_new
+        end function qgraphicsvideoitem_new
+
+        !> QVideoFormat
+        function qvideoformat_new() bind(c, name="qvideoformat_new")
+            import :: c_ptr
+            type(c_ptr) :: qvideoformat_new
+        end function qvideoformat_new
+
+        subroutine qvideoformat_set_resolution(format, width, height) bind(c, name="qvideoformat_set_resolution")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: format
+            integer(c_int), value :: width, height
+        end subroutine qvideoformat_set_resolution
+
+        function qvideoformat_resolution(format) bind(c, name="qvideoformat_resolution")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: format
+            integer(c_int), dimension(2) :: qvideoformat_resolution
+        end function qvideoformat_resolution
+
+        function qvideoformat_frame_rate(format) bind(c, name="qvideoformat_frame_rate")
+            import :: c_ptr, c_double
+            type(c_ptr), value :: format
+            real(c_double) :: qvideoformat_frame_rate
+        end function qvideoformat_frame_rate
+
+        subroutine qvideoformat_set_frame_rate(format, frame_rate) bind(c, name="qvideoformat_set_frame_rate")
+            import :: c_ptr, c_double
+            type(c_ptr), value :: format
+            real(c_double), value :: frame_rate
+        end subroutine qvideoformat_set_frame_rate
+
+        function qvideoformat_pixel_format(format) bind(c, name="qvideoformat_pixel_format")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: format
+            integer(c_int) :: qvideoformat_pixel_format
+        end function qvideoformat_pixel_format
+
+        subroutine qvideoformat_set_pixel_format(format, pixel_format) bind(c, name="qvideoformat_set_pixel_format")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: format
+            integer(c_int), value :: pixel_format
+        end subroutine qvideoformat_set_pixel_format
+
+        !> QCamera
+        function qcamera_new(parent) bind(c, name="qcamera_new")
+            import :: c_ptr
+            type(c_ptr), value :: parent
+            type(c_ptr) :: qcamera_new
+        end function qcamera_new
+
+        subroutine qcamera_set_viewfinder(camera, viewfinder) bind(c, name="qcamera_set_viewfinder")
+            import :: c_ptr
+            type(c_ptr), value :: camera, viewfinder
+        end subroutine qcamera_set_viewfinder
+
+        subroutine qcamera_start(camera) bind(c, name="qcamera_start")
+            import :: c_ptr
+            type(c_ptr), value :: camera
+        end subroutine qcamera_start
+
+        subroutine qcamera_stop(camera) bind(c, name="qcamera_stop")
+            import :: c_ptr
+            type(c_ptr), value :: camera
+        end subroutine qcamera_stop
+
+        function qcamera_state(camera) bind(c, name="qcamera_state")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: camera
+            integer(c_int) :: qcamera_state
+        end function qcamera_state
+
+        subroutine qcamera_set_capture_mode(camera, mode) bind(c, name="qcamera_set_capture_mode")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: camera
+            integer(c_int), value :: mode
+        end subroutine qcamera_set_capture_mode
+
+        function qcamera_capture_mode(camera) bind(c, name="qcamera_capture_mode")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: camera
+            integer(c_int) :: qcamera_capture_mode
+        end function qcamera_capture_mode
+
+        !> QCameraViewfinder
+        function qcameraviewfinder_new(parent) bind(c, name="qcameraviewfinder_new")
+            import :: c_ptr
+            type(c_ptr), value :: parent
+            type(c_ptr) :: qcameraviewfinder_new
+        end function qcameraviewfinder_new
+
+        subroutine qcameraviewfinder_set_camera(viewfinder, camera) bind(c, name="qcameraviewfinder_set_camera")
+            import :: c_ptr
+            type(c_ptr), value :: viewfinder, camera
+        end subroutine qcameraviewfinder_set_camera
+
+        !> QCameraImageCapture
+        function qcameraimagecapture_new(camera, parent) bind(c, name="qcameraimagecapture_new")
+            import :: c_ptr
+            type(c_ptr), value :: camera, parent
+            type(c_ptr) :: qcameraimagecapture_new
+        end function qcameraimagecapture_new
+
+        subroutine qcameraimagecapture_set_camera(capture, camera) bind(c, name="qcameraimagecapture_set_camera")
+            import :: c_ptr
+            type(c_ptr), value :: capture, camera
+        end subroutine qcameraimagecapture_set_camera
+
+        subroutine qcameraimagecapture_capture(capture, location) bind(c, name="qcameraimagecapture_capture")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: capture
+            character(kind=c_char), dimension(*) :: location
+        end subroutine qcameraimagecapture_capture
+
+        function qcameraimagecapture_image_captured(capture) bind(c, name="qcameraimagecapture_image_captured")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: capture
+            logical(c_bool) :: qcameraimagecapture_image_captured
+        end function qcameraimagecapture_image_captured
+
+        !> QMediaPlayer
+        function qmediaplayer_new(parent) bind(c, name="qmediaplayer_new")
+            import :: c_ptr
+            type(c_ptr), value :: parent
+            type(c_ptr) :: qmediaplayer_new
+        end function qmediaplayer_new
+
+        subroutine qmediaplayer_set_media(player, media) bind(c, name="qmediaplayer_set_media")
+            import :: c_ptr
+            type(c_ptr), value :: player, media
+        end subroutine qmediaplayer_set_media
+
+        subroutine qmediaplayer_play(player) bind(c, name="qmediaplayer_play")
+            import :: c_ptr
+            type(c_ptr), value :: player
+        end subroutine qmediaplayer_play
+
+        subroutine qmediaplayer_pause(player) bind(c, name="qmediaplayer_pause")
+            import :: c_ptr
+            type(c_ptr), value :: player
+        end subroutine qmediaplayer_pause
+
+        subroutine qmediaplayer_stop(player) bind(c, name="qmediaplayer_stop")
+            import :: c_ptr
+            type(c_ptr), value :: player
+        end subroutine qmediaplayer_stop
+
+        subroutine qmediaplayer_set_volume(player, volume) bind(c, name="qmediaplayer_set_volume")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: player
+            integer(c_int), value :: volume
+        end subroutine qmediaplayer_set_volume
+
+        function qmediaplayer_volume(player) bind(c, name="qmediaplayer_volume")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: player
+            integer(c_int) :: qmediaplayer_volume
+        end function qmediaplayer_volume
+
+        function qmediaplayer_position(player) bind(c, name="qmediaplayer_position")
+            import :: c_ptr, c_long_long
+            type(c_ptr), value :: player
+            integer(c_long_long) :: qmediaplayer_position
+        end function qmediaplayer_position
+
+        subroutine qmediaplayer_set_position(player, position) bind(c, name="qmediaplayer_set_position")
+            import :: c_ptr, c_long_long
+            type(c_ptr), value :: player
+            integer(c_long_long), value :: position
+        end subroutine qmediaplayer_set_position
+
+        function qmediaplayer_duration(player) bind(c, name="qmediaplayer_duration")
+            import :: c_ptr, c_long_long
+            type(c_ptr), value :: player
+            integer(c_long_long) :: qmediaplayer_duration
+        end function qmediaplayer_duration
+
+        function qmediaplayer_state(player) bind(c, name="qmediaplayer_state")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: player
+            integer(c_int) :: qmediaplayer_state
+        end function qmediaplayer_state
+
+        function qmediaplayer_error(player) bind(c, name="qmediaplayer_error")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: player
+            integer(c_int) :: qmediaplayer_error
+        end function qmediaplayer_error
+
+        subroutine qmediaplayer_set_video_output(player, output) bind(c, name="qmediaplayer_set_video_output")
+            import :: c_ptr
+            type(c_ptr), value :: player, output
+        end subroutine qmediaplayer_set_video_output
+
+        !> QMediaContent
+        function qmediacontent_new(url) bind(c, name="qmediacontent_new")
+            import :: c_ptr, c_char
+            character(kind=c_char), dimension(*) :: url
+            type(c_ptr) :: qmediacontent_new
+        end function qmediacontent_new
+
+        !> QMediaMetaData
+        function qmediametadata_title(metadata) bind(c, name="qmediametadata_title")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: metadata
+            character(kind=c_char), dimension(*) :: qmediametadata_title
+        end function qmediametadata_title
+
+        function qmediametadata_artist(metadata) bind(c, name="qmediametadata_artist")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: metadata
+            character(kind=c_char), dimension(*) :: qmediametadata_artist
+        end function qmediametadata_artist
+
+        function qmediametadata_album(metadata) bind(c, name="qmediametadata_album")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: metadata
+            character(kind=c_char), dimension(*) :: qmediametadata_album
+        end function qmediametadata_album
+
+        function qmediametadata_duration(metadata) bind(c, name="qmediametadata_duration")
+            import :: c_ptr, c_long_long
+            type(c_ptr), value :: metadata
+            integer(c_long_long) :: qmediametadata_duration
+        end function qmediametadata_duration
+
+        !> QMediaRecorder
+        function qmediarecorder_new(media_object, parent) bind(c, name="qmediarecorder_new")
+            import :: c_ptr
+            type(c_ptr), value :: media_object, parent
+            type(c_ptr) :: qmediarecorder_new
+        end function qmediarecorder_new
+
+        subroutine qmediarecorder_set_output_location(recorder, location) bind(c, name="qmediarecorder_set_output_location")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: recorder
+            character(kind=c_char), dimension(*) :: location
+        end subroutine qmediarecorder_set_output_location
+
+        subroutine qmediarecorder_record(recorder) bind(c, name="qmediarecorder_record")
+            import :: c_ptr
+            type(c_ptr), value :: recorder
+        end subroutine qmediarecorder_record
+
+        subroutine qmediarecorder_stop(recorder) bind(c, name="qmediarecorder_stop")
+            import :: c_ptr
+            type(c_ptr), value :: recorder
+        end subroutine qmediarecorder_stop
+
+        function qmediarecorder_state(recorder) bind(c, name="qmediarecorder_state")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: recorder
+            integer(c_int) :: qmediarecorder_state
+        end function qmediarecorder_state
+
+        function qmediarecorder_error(recorder) bind(c, name="qmediarecorder_error")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: recorder
+            integer(c_int) :: qmediarecorder_error
+        end function qmediarecorder_error
+
+        subroutine qmediarecorder_set_audio_input(recorder, input) bind(c, name="qmediarecorder_set_audio_input")
+            import :: c_ptr
+            type(c_ptr), value :: recorder, input
+        end subroutine qmediarecorder_set_audio_input
+
+        subroutine qmediarecorder_set_video_input(recorder, input) bind(c, name="qmediarecorder_set_video_input")
+            import :: c_ptr
+            type(c_ptr), value :: recorder, input
+        end subroutine qmediarecorder_set_video_input
+
+        !> QAudioRecorder
+        function qaudiorecorder_new(parent) bind(c, name="qaudiorecorder_new")
+            import :: c_ptr
+            type(c_ptr), value :: parent
+            type(c_ptr) :: qaudiorecorder_new
+        end function qaudiorecorder_new
+
+        !> QVideoRecorder
+        function qvideorecorder_new(parent) bind(c, name="qvideorecorder_new")
+            import :: c_ptr
+            type(c_ptr), value :: parent
+            type(c_ptr) :: qvideorecorder_new
+        end function qvideorecorder_new
+
     end interface
 
 end module forge_qt_bindings

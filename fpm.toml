@@ -212,3 +212,39 @@ name = "test_network"
 source-dir = "test"
 main = "test_network.f90"
 
+# ForGE Qt Tooling executables
+[[executable]]
+name = "forge_moc"
+source-dir = "tools/moc"
+main = "forge_moc.f90"
+
+[[executable]]
+name = "forge_rcc"
+source-dir = "tools/rcc"
+main = "forge_rcc.f90"
+
+[[executable]]
+name = "forge_uic"
+source-dir = "tools/uic"
+main = "forge_uic.f90"
+
+[[executable]]
+name = "forge_lupdate"
+source-dir = "tools/lupdate"
+main = "forge_lupdate.f90"
+
+[[executable]]
+name = "forge_lrelease"
+source-dir = "tools/lrelease"
+main = "forge_lrelease.f90"
+
+[[executable]]
+name = "forge_project_generator"
+source-dir = "tools/templates"
+main = "forge_project_generator.f90"
+
+[[executable]]
+name = "forge_code_analyzer"
+source-dir = "tools/analysis"
+main = "forge_code_analyzer.f90"
+

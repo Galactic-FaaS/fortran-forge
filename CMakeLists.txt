@@ -291,6 +291,47 @@ if(FORGE_BUILD_TESTS)
     add_subdirectory(test)
 endif()
 
+# Build ForGE Qt tooling
+option(FORGE_BUILD_TOOLING "Build ForGE Qt development tools" ON)
+if(FORGE_BUILD_TOOLING)
+    message(STATUS "Building ForGE Qt tooling")
+
+    # Meta-Object Compiler (moc)
+    add_executable(forge_moc tools/moc/forge_moc.f90)
+    target_link_libraries(forge_moc ForGE::forge)
+    install(TARGETS forge_moc RUNTIME DESTINATION bin)
+
+    # Resource Compiler (rcc)
+    add_executable(forge_rcc tools/rcc/forge_rcc.f90)
+    target_link_libraries(forge_rcc ForGE::forge)
+    install(TARGETS forge_rcc RUNTIME DESTINATION bin)
+
+    # UI Compiler (uic)
+    add_executable(forge_uic tools/uic/forge_uic.f90)
+    target_link_libraries(forge_uic ForGE::forge)
+    install(TARGETS forge_uic RUNTIME DESTINATION bin)
+
+    # Translation Update Tool (lupdate)
+    add_executable(forge_lupdate tools/lupdate/forge_lupdate.f90)
+    target_link_libraries(forge_lupdate ForGE::forge)
+    install(TARGETS forge_lupdate RUNTIME DESTINATION bin)
+
+    # Translation Release Tool (lrelease)
+    add_executable(forge_lrelease tools/lrelease/forge_lrelease.f90)
+    target_link_libraries(forge_lrelease ForGE::forge)
+    install(TARGETS forge_lrelease RUNTIME DESTINATION bin)
+
+    # Project Template Generator
+    add_executable(forge_project_generator tools/templates/forge_project_generator.f90)
+    target_link_libraries(forge_project_generator ForGE::forge)
+    install(TARGETS forge_project_generator RUNTIME DESTINATION bin)
+
+    # Code Analysis Tool
+    add_executable(forge_code_analyzer tools/analysis/forge_code_analyzer.f90)
+    target_link_libraries(forge_code_analyzer ForGE::forge)
+    install(TARGETS forge_code_analyzer RUNTIME DESTINATION bin)
+endif()
+
 # Generate pkg-config file
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/forge.pc.in
@@ -315,5 +356,6 @@ message(STATUS "    Tcl/Tk: ${FORGE_BACKEND_TCL_TK}")
 message(STATUS "    GTK4: ${FORGE_BACKEND_GTK4}")
 message(STATUS "    Qt: ${FORGE_BACKEND_QT}")
 message(STATUS "    Custom: ${FORGE_BACKEND_CUSTOM}")
+message(STATUS "  Tooling: ${FORGE_BUILD_TOOLING}")
 message(STATUS "")
 
