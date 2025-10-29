@@ -11,9 +11,9 @@ module forge_input
     implicit none
     private
 
-    public :: forge_mouse_state, forge_keyboard_state
+    public :: forge_mouse_state, forge_keyboard_state, forge_touch_state
     public :: update_mouse_state, create_mouse_event
-    public :: create_keyboard_event
+    public :: create_keyboard_event, update_touch_state
 
     !> @brief Mouse state tracking
     type :: forge_mouse_state
@@ -31,6 +31,12 @@ module forge_input
         logical :: ctrl_pressed = .false.
         logical :: alt_pressed = .false.
     end type forge_keyboard_state
+
+    !> @brief Touch state tracking
+    type :: forge_touch_state
+        integer(c_int) :: touch_count = 0
+        type(forge_touch_point) :: touches(MAX_TOUCH_POINTS)
+    end type forge_touch_state
 
 contains
 
@@ -95,6 +101,48 @@ contains
             event%alt_pressed = keyboard_state%alt_pressed
         end if
     end function create_keyboard_event
+
+    !> @brief Update touch state from touch event data
+    subroutine update_touch_state(state, touch_id, x, y, pressure, phase)
+        type(forge_touch_state), intent(inout) :: state
+        integer(c_int), intent(in) :: touch_id, x, y, phase
+        real(c_float), intent(in) :: pressure
+        integer :: i, found_index
+
+        found_index = -1
+        do i = 1, state%touch_count
+            if (state%touches(i)%touch_id == touch_id) then
+                found_index = i
+                exit
+            end if
+        end do
+
+        if (found_index == -1) then
+            ! New touch
+            if (state%touch_count < MAX_TOUCH_POINTS) then
+                state%touch_count = state%touch_count + 1
+                found_index = state%touch_count
+            else
+                ! Too many touches, ignore
+                return
+            end if
+        end if
+
+        ! Update touch data
+        state%touches(found_index)%touch_id = touch_id
+        state%touches(found_index)%x = x
+        state%touches(found_index)%y = y
+        state%touches(found_index)%pressure = pressure
+        state%touches(found_index)%phase = phase
+
+        ! Remove ended/cancelled touches
+        if (phase == 2 .or. phase == 3) then  ! ended or cancelled
+            if (found_index < state%touch_count) then
+                state%touches(found_index) = state%touches(state%touch_count)
+            end if
+            state%touch_count = state%touch_count - 1
+        end if
+    end subroutine update_touch_state
 
 end module forge_input
 

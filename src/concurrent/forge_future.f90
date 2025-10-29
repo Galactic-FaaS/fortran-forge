@@ -29,9 +29,15 @@ module forge_future
         private
         type(FutureState) :: state
         logical :: result_ready = .false.
+        logical :: canceled_flag = .false.
+        integer :: progress_value = 0
+        integer :: progress_minimum = 0
+        integer :: progress_maximum = 0
         type(signal_void) :: finished
         type(signal_void) :: canceled
         type(signal_void) :: result_ready_signal
+        type(signal_int) :: progress_value_changed
+        type(signal_int_int) :: progress_range_changed
         type(QMutex) :: mutex
     contains
         procedure :: wait_for_finished => future_wait_finished
@@ -42,6 +48,11 @@ module forge_future
         procedure :: cancel => future_cancel
         procedure :: is_result_ready => future_is_result_ready
         procedure :: wait_for_result => future_wait_result
+        procedure :: progress_value => future_progress_value
+        procedure :: progress_minimum => future_progress_minimum
+        procedure :: progress_maximum => future_progress_maximum
+        procedure :: set_progress_value => future_set_progress_value
+        procedure :: set_progress_range => future_set_progress_range
     end type QFuture
 
     !> @brief Promise for async operations
@@ -151,6 +162,45 @@ contains
             call this%mutex%unlock()
         end if
     end subroutine future_wait_result
+
+    function future_progress_value(this) result(value)
+        class(QFuture), intent(in) :: this
+        integer :: value
+        value = this%progress_value
+    end function future_progress_value
+
+    function future_progress_minimum(this) result(minimum)
+        class(QFuture), intent(in) :: this
+        integer :: minimum
+        minimum = this%progress_minimum
+    end function future_progress_minimum
+
+    function future_progress_maximum(this) result(maximum)
+        class(QFuture), intent(in) :: this
+        integer :: maximum
+        maximum = this%progress_maximum
+    end function future_progress_maximum
+
+    subroutine future_set_progress_value(this, value)
+        class(QFuture), intent(inout) :: this
+        integer, intent(in) :: value
+
+        call this%mutex%lock()
+        this%progress_value = value
+        call this%mutex%unlock()
+        call this%progress_value_changed%emit(value)
+    end subroutine future_set_progress_value
+
+    subroutine future_set_progress_range(this, minimum, maximum)
+        class(QFuture), intent(inout) :: this
+        integer, intent(in) :: minimum, maximum
+
+        call this%mutex%lock()
+        this%progress_minimum = minimum
+        this%progress_maximum = maximum
+        call this%mutex%unlock()
+        call this%progress_range_changed%emit(minimum, maximum)
+    end subroutine future_set_progress_range
 
     ! ========== QPromise Implementation ==========
 

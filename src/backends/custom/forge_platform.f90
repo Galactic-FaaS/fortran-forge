@@ -12,6 +12,36 @@ module forge_platform
     private
 
     public :: forge_platform_base, platform_window_handle, platform_surface_handle
+    public :: platform_lifecycle_state, platform_orientation
+
+    !> @brief Platform lifecycle states
+    integer, parameter :: LIFECYCLE_CREATED = 0
+    integer, parameter :: LIFECYCLE_STARTED = 1
+    integer, parameter :: LIFECYCLE_RESUMED = 2
+    integer, parameter :: LIFECYCLE_PAUSED = 3
+    integer, parameter :: LIFECYCLE_STOPPED = 4
+    integer, parameter :: LIFECYCLE_DESTROYED = 5
+
+    !> @brief Device orientation
+    integer, parameter :: ORIENTATION_PORTRAIT = 0
+    integer, parameter :: ORIENTATION_LANDSCAPE = 1
+    integer, parameter :: ORIENTATION_PORTRAIT_UPSIDE_DOWN = 2
+    integer, parameter :: ORIENTATION_LANDSCAPE_LEFT = 3
+    integer, parameter :: ORIENTATION_LANDSCAPE_RIGHT = 4
+
+    !> @brief Platform lifecycle state
+    type :: platform_lifecycle_state
+        integer :: current_state = LIFECYCLE_CREATED
+        logical :: is_background = .false.
+        logical :: is_foreground = .true.
+    end type platform_lifecycle_state
+
+    !> @brief Device orientation info
+    type :: platform_orientation
+        integer :: current_orientation = ORIENTATION_PORTRAIT
+        integer :: screen_width = 0
+        integer :: screen_height = 0
+    end type platform_orientation
 
     !> @brief Opaque platform window handle
     type :: platform_window_handle
@@ -29,6 +59,8 @@ module forge_platform
     !> @brief Abstract platform interface
     type, abstract :: forge_platform_base
         logical :: initialized = .false.
+        type(platform_lifecycle_state) :: lifecycle
+        type(platform_orientation) :: orientation
     contains
         procedure(platform_init_interface), deferred :: init
         procedure(platform_shutdown_interface), deferred :: shutdown
@@ -38,11 +70,17 @@ module forge_platform
         procedure(platform_hide_window_interface), deferred :: hide_window
         procedure(platform_process_events_interface), deferred :: process_events
         procedure(platform_get_surface_interface), deferred :: get_surface
+        procedure(platform_get_lifecycle_interface), deferred :: get_lifecycle
+        procedure(platform_get_orientation_interface), deferred :: get_orientation
+        procedure(platform_set_orientation_interface), deferred :: set_orientation
+        procedure(platform_handle_back_button_interface), deferred :: handle_back_button
+        procedure(platform_show_status_bar_interface), deferred :: show_status_bar
+        procedure(platform_hide_status_bar_interface), deferred :: hide_status_bar
     end type forge_platform_base
 
     !> Abstract interfaces for platform operations
     abstract interface
-        
+
         subroutine platform_init_interface(this, status)
             import :: forge_platform_base, forge_status
             class(forge_platform_base), intent(inout) :: this
@@ -94,6 +132,43 @@ module forge_platform
             type(platform_surface_handle), intent(out) :: surface
             type(forge_status), intent(out) :: status
         end subroutine platform_get_surface_interface
+
+        subroutine platform_get_lifecycle_interface(this, lifecycle)
+            import :: forge_platform_base, platform_lifecycle_state
+            class(forge_platform_base), intent(inout) :: this
+            type(platform_lifecycle_state), intent(out) :: lifecycle
+        end subroutine platform_get_lifecycle_interface
+
+        subroutine platform_get_orientation_interface(this, orientation)
+            import :: forge_platform_base, platform_orientation
+            class(forge_platform_base), intent(inout) :: this
+            type(platform_orientation), intent(out) :: orientation
+        end subroutine platform_get_orientation_interface
+
+        subroutine platform_set_orientation_interface(this, orientation, status)
+            import :: forge_platform_base, platform_orientation, forge_status
+            class(forge_platform_base), intent(inout) :: this
+            type(platform_orientation), intent(in) :: orientation
+            type(forge_status), intent(out) :: status
+        end subroutine platform_set_orientation_interface
+
+        subroutine platform_handle_back_button_interface(this, handled)
+            import :: forge_platform_base, c_bool
+            class(forge_platform_base), intent(inout) :: this
+            logical(c_bool), intent(out) :: handled
+        end subroutine platform_handle_back_button_interface
+
+        subroutine platform_show_status_bar_interface(this, status)
+            import :: forge_platform_base, forge_status
+            class(forge_platform_base), intent(inout) :: this
+            type(forge_status), intent(out) :: status
+        end subroutine platform_show_status_bar_interface
+
+        subroutine platform_hide_status_bar_interface(this, status)
+            import :: forge_platform_base, forge_status
+            class(forge_platform_base), intent(inout) :: this
+            type(forge_status), intent(out) :: status
+        end subroutine platform_hide_status_bar_interface
 
     end interface
 

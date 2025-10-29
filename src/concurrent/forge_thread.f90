@@ -11,7 +11,7 @@ module forge_thread
     implicit none
     private
 
-    public :: QThread, QMutex, QSemaphore, QWaitCondition
+    public :: QThread, QMutex, QSemaphore, QWaitCondition, QThreadPool
     public :: lock_mutex, unlock_mutex
 
     !> @brief Thread abstraction
@@ -75,6 +75,66 @@ module forge_thread
         procedure :: wait => condition_wait
         procedure :: wake_one => condition_wake_one
         procedure :: wake_all => condition_wake_all
+    !> @brief Thread pool for managing worker threads
+    type :: QThreadPool
+        private
+        type(QThread), allocatable :: workers(:)
+        integer :: max_thread_count = 0
+        integer :: active_thread_count = 0
+    subroutine thread_start(this, priority)
+#ifdef _WIN32
+        use forge_thread_windows
+#endif
+#ifndef _WIN32
+        use forge_thread_posix
+#endif
+        class(QThread), intent(inout) :: this
+        integer, intent(in), optional :: priority
+
+        if (this%running) return
+
+        if (present(priority)) this%priority = priority
+
+#ifdef _WIN32
+        ! Create thread with proper procedure
+        this%thread_handle = win_create_thread(c_funloc(thread_wrapper), c_loc(this))
+        if (.not. c_associated(this%thread_handle)) then
+            call forge_error("Failed to create thread")
+            return
+        end if
+#endif
+#ifndef _WIN32
+        ! POSIX thread creation
+        this%thread_handle = posix_create_thread(c_funloc(thread_wrapper), c_loc(this))
+        if (.not. c_associated(this%thread_handle)) then
+            call forge_error("Failed to create POSIX thread")
+            return
+        end if
+#endif
+
+        this%running = .true.
+        this%finished_flag = .false.
+        this%terminated_flag = .false.
+        call this%started%emit()
+    end subroutine thread_start
+        integer :: expiry_timeout = 30000  ! 30 seconds
+        logical :: running = .false.
+        type(QMutex) :: mutex
+        type(QWaitCondition) :: no_active_threads
+        type(QSemaphore) :: semaphore
+    contains
+        procedure :: start => threadpool_start
+        procedure :: wait_for_done => threadpool_wait_for_done
+        procedure :: set_max_thread_count => threadpool_set_max_thread_count
+        procedure :: max_thread_count => threadpool_max_thread_count
+        procedure :: active_thread_count => threadpool_active_thread_count
+        procedure :: set_expiry_timeout => threadpool_set_expiry_timeout
+        procedure :: expiry_timeout => threadpool_get_expiry_timeout
+        procedure :: reserve_thread => threadpool_reserve_thread
+        procedure :: release_thread => threadpool_release_thread
+        procedure :: clear => threadpool_clear
+    end type QThreadPool
+
     end type QWaitCondition
 
 contains
@@ -419,6 +479,111 @@ contains
 #ifdef _WIN32
         success = win_wait_event(this%condition_handle, timeout_ms)
 #endif
+    ! ========== QThreadPool Implementation ==========
+
+    subroutine threadpool_start(this, runnable)
+        class(QThreadPool), intent(inout) :: this
+        ! runnable parameter would be a QRunnable interface
+        ! For now, simplified implementation
+        ! TODO: Implement full QRunnable interface
+    end subroutine threadpool_start
+
+    function threadpool_wait_for_done(this, msecs) result(success)
+        class(QThreadPool), intent(inout) :: this
+        integer, intent(in), optional :: msecs
+        logical :: success
+
+        call this%mutex%lock()
+        if (this%active_thread_count == 0) then
+            success = .true.
+        else
+            if (present(msecs)) then
+                call this%no_active_threads%wait(this%mutex, msecs)
+            else
+                call this%no_active_threads%wait(this%mutex)
+            end if
+            success = (this%active_thread_count == 0)
+        end if
+        call this%mutex%unlock()
+    end function threadpool_wait_for_done
+
+    subroutine threadpool_set_max_thread_count(this, max_count)
+        class(QThreadPool), intent(inout) :: this
+        integer, intent(in) :: max_count
+
+        call this%mutex%lock()
+        this%max_thread_count = max_count
+        call this%mutex%unlock()
+    end subroutine threadpool_set_max_thread_count
+
+    function threadpool_max_thread_count(this) result(count)
+        class(QThreadPool), intent(in) :: this
+        integer :: count
+
+        call this%mutex%lock()
+        count = this%max_thread_count
+        call this%mutex%unlock()
+    end function threadpool_max_thread_count
+
+    function threadpool_active_thread_count(this) result(count)
+        class(QThreadPool), intent(in) :: this
+        integer :: count
+
+        call this%mutex%lock()
+        count = this%active_thread_count
+        call this%mutex%unlock()
+    end function threadpool_active_thread_count
+
+    subroutine threadpool_set_expiry_timeout(this, expiry_timeout)
+        class(QThreadPool), intent(inout) :: this
+        integer, intent(in) :: expiry_timeout
+
+        call this%mutex%lock()
+        this%expiry_timeout = expiry_timeout
+        call this%mutex%unlock()
+    end subroutine threadpool_set_expiry_timeout
+
+    function threadpool_get_expiry_timeout(this) result(expiry_timeout)
+        class(QThreadPool), intent(in) :: this
+        integer :: expiry_timeout
+
+        call this%mutex%lock()
+        expiry_timeout = this%expiry_timeout
+        call this%mutex%unlock()
+    end function threadpool_get_expiry_timeout
+
+    subroutine threadpool_reserve_thread(this)
+        class(QThreadPool), intent(inout) :: this
+
+        call this%mutex%lock()
+        this%active_thread_count = this%active_thread_count + 1
+        call this%mutex%unlock()
+    end subroutine threadpool_reserve_thread
+
+    subroutine threadpool_release_thread(this)
+        class(QThreadPool), intent(inout) :: this
+
+        call this%mutex%lock()
+        this%active_thread_count = this%active_thread_count - 1
+        if (this%active_thread_count == 0) then
+            call this%no_active_threads%wake_all()
+        end if
+        call this%mutex%unlock()
+    end subroutine threadpool_release_thread
+
+    subroutine threadpool_clear(this)
+        class(QThreadPool), intent(inout) :: this
+
+        call this%mutex%lock()
+        if (allocated(this%workers)) then
+            deallocate(this%workers)
+        end if
+        this%active_thread_count = 0
+        this%running = .false.
+        call this%mutex%unlock()
+    end subroutine threadpool_clear
+
+end module forge_thread
 
         call mutex%lock()
     end subroutine condition_wait
