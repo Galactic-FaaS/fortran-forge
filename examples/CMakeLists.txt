@@ -257,8 +257,28 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/thread_thread_pool/thread_thread_pool.f90)
 endif()
 
 # Database Examples
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/database_connections/database_connections.f90)
+    add_forge_example(database_connections database_connections.f90)
+endif()
+
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/database_sql_queries/database_sql_queries.f90)
     add_forge_example(database_sql_queries database_sql_queries.f90)
+endif()
+
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/database_model_view/database_model_view.f90)
+    add_forge_example(database_model_view database_model_view.f90)
+endif()
+
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/database_prepared_statements/database_prepared_statements.f90)
+    add_forge_example(database_prepared_statements database_prepared_statements.f90)
+endif()
+
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/database_transactions/database_transactions.f90)
+    add_forge_example(database_transactions database_transactions.f90)
+endif()
+
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/database_error_handling/database_error_handling.f90)
+    add_forge_example(database_error_handling database_error_handling.f90)
 endif()
 
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/database_crud_operations/database_crud_operations.f90)

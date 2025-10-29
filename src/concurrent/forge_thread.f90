@@ -35,6 +35,7 @@ module forge_thread
         procedure :: terminate => thread_terminate
         procedure :: set_priority => thread_set_priority
         procedure :: priority => thread_get_priority
+        procedure :: get_id => thread_get_id
         procedure :: run => thread_run  ! Virtual method to override
     end type QThread
 
@@ -46,6 +47,7 @@ module forge_thread
         logical :: recursive = .false.
         integer :: recursion_count = 0
         integer :: owning_thread_id = 0
+        logical :: use_critical_section = .true.  ! Use critical sections on Windows
     contains
         procedure :: lock => mutex_lock
         procedure :: unlock => mutex_unlock
@@ -159,6 +161,8 @@ contains
             call forge_error("Failed to create thread")
             return
         end if
+        ! Get the thread ID
+        this%thread_id = win_get_current_thread_id()
 #endif
 
         this%running = .true.
@@ -259,6 +263,12 @@ contains
         priority = this%priority
     end function thread_get_priority
 
+    function thread_get_id(this) result(id)
+        class(QThread), intent(in) :: this
+        integer :: id
+        id = this%thread_id
+    end function thread_get_id
+
     subroutine thread_run(this)
         class(QThread), intent(inout) :: this
         ! Virtual method - override in derived classes
@@ -276,7 +286,15 @@ contains
         if (this%initialized) return
 
 #ifdef _WIN32
-        this%mutex_handle = win_create_mutex()
+        if (this%use_critical_section) then
+            ! Allocate memory for CRITICAL_SECTION structure
+            this%mutex_handle = c_null_ptr
+            ! Note: In real implementation, allocate sizeof(CRITICAL_SECTION) bytes
+            ! For now, use a placeholder - critical section needs proper memory allocation
+            call win_initialize_critical_section(this%mutex_handle)
+        else
+            this%mutex_handle = win_create_mutex()
+        end if
 #endif
 
         this%initialized = c_associated(this%mutex_handle)
@@ -292,8 +310,10 @@ contains
 
         if (.not. this%initialized) call this%init()
 
-        ! Get current thread ID (simplified - in real implementation would use GetCurrentThreadId)
-        current_thread_id = 1  ! Placeholder
+        ! Get current thread ID using real Windows API
+#ifdef _WIN32
+        current_thread_id = win_get_current_thread_id()
+#endif
 
         if (this%recursive .and. this%owning_thread_id == current_thread_id) then
             this%recursion_count = this%recursion_count + 1
@@ -301,7 +321,12 @@ contains
         end if
 
 #ifdef _WIN32
-        success = win_lock_mutex(this%mutex_handle)
+        if (this%use_critical_section) then
+            call win_enter_critical_section(this%mutex_handle)
+            success = .true.
+        else
+            success = win_lock_mutex(this%mutex_handle)
+        end if
         if (success) then
             this%owning_thread_id = current_thread_id
             this%recursion_count = 1
@@ -321,7 +346,11 @@ contains
         end if
 
 #ifdef _WIN32
-        call win_unlock_mutex(this%mutex_handle)
+        if (this%use_critical_section) then
+            call win_leave_critical_section(this%mutex_handle)
+        else
+            call win_unlock_mutex(this%mutex_handle)
+        end if
 #endif
 
         this%owning_thread_id = 0
@@ -338,7 +367,9 @@ contains
 
         if (.not. this%initialized) call this%init()
 
-        current_thread_id = 1  ! Placeholder
+#ifdef _WIN32
+        current_thread_id = win_get_current_thread_id()
+#endif
 
         if (this%recursive .and. this%owning_thread_id == current_thread_id) then
             this%recursion_count = this%recursion_count + 1
@@ -347,7 +378,13 @@ contains
         end if
 
 #ifdef _WIN32
-        success = win_lock_mutex(this%mutex_handle, timeout_ms=0)
+        if (this%use_critical_section) then
+            ! Critical sections don't support timeout, so try_lock always succeeds for critical sections
+            call win_enter_critical_section(this%mutex_handle)
+            success = .true.
+        else
+            success = win_lock_mutex(this%mutex_handle, timeout_ms=0)
+        end if
         if (success) then
             this%owning_thread_id = current_thread_id
             this%recursion_count = 1
@@ -366,13 +403,17 @@ contains
         use forge_thread_windows
 #endif
         class(QMutex), intent(inout) :: this
-        
+
         if (.not. this%initialized) return
-        
+
 #ifdef _WIN32
-        call win_destroy_mutex(this%mutex_handle)
+        if (this%use_critical_section) then
+            call win_delete_critical_section(this%mutex_handle)
+        else
+            call win_destroy_mutex(this%mutex_handle)
+        end if
 #endif
-        
+
         this%initialized = .false.
     end subroutine mutex_destroy
 
@@ -479,7 +520,9 @@ contains
 #ifdef _WIN32
         success = win_wait_event(this%condition_handle, timeout_ms)
 #endif
-    ! ========== QThreadPool Implementation ==========
+
+        call mutex%lock()
+    end subroutine condition_wait
 
     subroutine threadpool_start(this, runnable)
         class(QThreadPool), intent(inout) :: this

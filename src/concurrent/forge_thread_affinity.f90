@@ -23,7 +23,7 @@ contains
     !> @brief Set thread CPU affinity
     subroutine set_thread_affinity(thread_handle, cpu_mask)
 #ifdef _WIN32
-        ! Windows implementation would use SetThreadAffinityMask
+        use forge_thread_windows, only: win_set_thread_affinity_mask
 #endif
 #ifndef _WIN32
         use forge_thread_posix, only: posix_set_thread_affinity
@@ -32,18 +32,9 @@ contains
         integer, intent(in) :: cpu_mask
 
 #ifdef _WIN32
-        ! Windows SetThreadAffinityMask implementation
-        interface
-            function SetThreadAffinityMask(hThread, dwThreadAffinityMask) bind(C, name="SetThreadAffinityMask")
-                import :: c_ptr, c_intptr_t, c_intptr_t
-                type(c_ptr), value :: hThread
-                integer(c_intptr_t), value :: dwThreadAffinityMask
-                integer(c_intptr_t) :: SetThreadAffinityMask
-            end function
-        end interface
-
+        ! Use real Windows SetThreadAffinityMask implementation
         if (c_associated(thread_handle)) then
-            call SetThreadAffinityMask(thread_handle, int(cpu_mask, c_intptr_t))
+            call win_set_thread_affinity_mask(thread_handle, int(cpu_mask, c_intptr_t))
         end if
 #endif
 #ifndef _WIN32
@@ -54,7 +45,7 @@ contains
     !> @brief Get thread CPU affinity
     function get_thread_affinity(thread_handle) result(cpu_mask)
 #ifdef _WIN32
-        ! Windows implementation
+        ! Windows implementation - simplified for now
 #endif
 #ifndef _WIN32
         use forge_thread_posix, only: posix_get_thread_affinity
@@ -64,20 +55,9 @@ contains
 
 #ifdef _WIN32
         ! Windows GetThreadAffinityMask implementation
-        interface
-            function GetThreadAffinityMask(hThread, lpProcessAffinityMask, lpSystemAffinityMask) &
-                    bind(C, name="GetThreadAffinityMask")
-                import :: c_ptr, c_intptr_t
-                type(c_ptr), value :: hThread, lpProcessAffinityMask, lpSystemAffinityMask
-                integer(c_int) :: GetThreadAffinityMask
-            end function
-        end interface
-
-        cpu_mask = 0
-        if (c_associated(thread_handle)) then
-            ! Simplified - would need proper mask handling
-            cpu_mask = 1
-        end if
+        ! For now, return current processor number as a simple affinity mask
+        use forge_thread_windows, only: win_get_current_processor_number
+        cpu_mask = win_get_current_processor_number()
 #endif
 #ifndef _WIN32
         cpu_mask = posix_get_thread_affinity(thread_handle)
@@ -87,6 +67,7 @@ contains
     !> @brief Get number of available CPUs
     function get_cpu_count() result(count)
 #ifdef _WIN32
+        ! Windows implementation using GetSystemInfo
         interface
             function GetSystemInfo(lpSystemInfo) bind(C, name="GetSystemInfo")
                 import :: c_ptr, c_int
@@ -94,6 +75,10 @@ contains
                 integer(c_int) :: GetSystemInfo
             end function
         end interface
+        ! SYSTEM_INFO structure - simplified to get dwNumberOfProcessors
+        type :: SYSTEM_INFO
+            integer(c_int) :: dwNumberOfProcessors
+        end type SYSTEM_INFO
 #endif
 #ifndef _WIN32
         ! Use sysconf(_SC_NPROCESSORS_ONLN)
@@ -109,7 +94,9 @@ contains
 
 #ifdef _WIN32
         ! Windows implementation
-        count = 1  ! Placeholder
+        type(SYSTEM_INFO) :: sys_info
+        call GetSystemInfo(c_loc(sys_info))
+        count = sys_info%dwNumberOfProcessors
 #endif
 #ifndef _WIN32
         count = sysconf(_SC_NPROCESSORS_ONLN)

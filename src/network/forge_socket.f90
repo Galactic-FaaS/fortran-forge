@@ -179,6 +179,16 @@ contains
         character(len=256) :: resolved_ip
         logical :: success
 
+        ! Initialize Winsock if not already done
+        if (.not. winsock_initialized()) then
+            success = socket_init()
+            if (.not. success) then
+                this%address = ""
+                this%is_ipv6 = .false.
+                return
+            end if
+        end if
+
         success = resolve_hostname(hostname, this%port, resolved_ip)
         if (success) then
             this%address = trim(resolved_ip)
@@ -490,9 +500,12 @@ contains
 
         ! Initialize socket subsystem if not already done
         if (.not. this%winsock_initialized) then
-            success = socket_init()
+            success = winsock_init()
             if (.not. success) then
                 this%state%value = UnconnectedState
+                this%error_code = -1
+                this%error_string = "Failed to initialize Winsock"
+                call this%error_occurred%emit(this%error_code)
                 return
             end if
             this%winsock_initialized = .true.
@@ -502,39 +515,51 @@ contains
         this%socket_handle = create_dual_socket(IPPROTO_TCP)
         if (.not. c_associated(this%socket_handle)) then
             this%state%value = UnconnectedState
+            this%error_code = -2
+            this%error_string = "Failed to create socket"
+            call this%error_occurred%emit(this%error_code)
             return
         end if
 
         this%state%value = ConnectingState
         call this%peer_address%set(host, port)
+        call this%state_changed%emit()
 
         ! Connect to host (supports both IPv4 and IPv6)
         success = socket_connect(this%socket_handle, host, port)
 
         if (success) then
             this%state%value = ConnectedState
+            call this%local_address%set("", 0)  ! Would need to get actual local address
             call this%connected%emit()
+            call this%state_changed%emit()
         else
+            this%error_code = -3
+            this%error_string = "Connection failed"
+            call this%error_occurred%emit(this%error_code)
             call socket_close(this%socket_handle)
             this%socket_handle = c_null_ptr
             this%state%value = UnconnectedState
+            call this%state_changed%emit()
         end if
     end subroutine tcpsocket_connect
 
     subroutine tcpsocket_disconnect(this)
         use forge_winsock
         class(QTcpSocket), intent(inout) :: this
-        
-        if (this%state%value == ConnectedState) then
+
+        if (this%state%value == ConnectedState .or. this%state%value == ConnectingState) then
             this%state%value = ClosingState
-            
+            call this%state_changed%emit()
+
             if (c_associated(this%socket_handle)) then
                 call socket_close(this%socket_handle)
                 this%socket_handle = c_null_ptr
             end if
-            
+
             call this%disconnected%emit()
             this%state%value = UnconnectedState
+            call this%state_changed%emit()
         end if
     end subroutine tcpsocket_disconnect
 
@@ -543,16 +568,23 @@ contains
         class(QTcpSocket), intent(inout) :: this
         character(len=*), intent(in) :: data
         integer :: bytes_written
-        
+
         if (this%state%value /= ConnectedState) then
             bytes_written = -1
+            this%error_code = -4
+            this%error_string = "Socket not connected"
+            call this%error_occurred%emit(this%error_code)
             return
         end if
-        
+
         bytes_written = socket_send(this%socket_handle, data, len(data))
-        
+
         if (bytes_written > 0) then
             call this%bytes_written%emit(bytes_written)
+        else if (bytes_written < 0) then
+            this%error_code = -5
+            this%error_string = "Send failed"
+            call this%error_occurred%emit(this%error_code)
         end if
     end function tcpsocket_write
 
@@ -563,22 +595,26 @@ contains
         character(len=:), allocatable :: data
         character(len=4096) :: buffer
         integer :: bytes_read, read_size
-        
+
         if (this%state%value /= ConnectedState) then
             allocate(character(len=0) :: data)
             return
         end if
-        
+
         read_size = min(max_size, 4096)
         bytes_read = socket_recv(this%socket_handle, buffer, read_size)
-        
+
         if (bytes_read > 0) then
             data = buffer(1:bytes_read)
+            call this%ready_read%emit()
         else if (bytes_read == 0) then
             ! Connection closed
             call this%disconnect_from_host()
             allocate(character(len=0) :: data)
         else
+            this%error_code = -6
+            this%error_string = "Receive failed"
+            call this%error_occurred%emit(this%error_code)
             allocate(character(len=0) :: data)
         end if
     end function tcpsocket_read
@@ -754,10 +790,11 @@ contains
 
         ! Initialize socket subsystem
         if (.not. this%winsock_initialized) then
-            success = socket_init()
+            success = winsock_init()
             if (.not. success) then
                 this%error_code = -7
-                this%error_string = "Failed to initialize socket subsystem"
+                this%error_string = "Failed to initialize Winsock"
+                call this%error_occurred%emit(this%error_code)
                 return
             end if
             this%winsock_initialized = .true.
@@ -768,6 +805,7 @@ contains
         if (.not. c_associated(this%socket_handle)) then
             this%error_code = -1
             this%error_string = "Failed to create listening socket"
+            call this%error_occurred%emit(this%error_code)
             return
         end if
 
@@ -775,6 +813,7 @@ contains
         if (.not. success) then
             this%error_code = -2
             this%error_string = "Failed to bind to port"
+            call this%error_occurred%emit(this%error_code)
             call socket_close(this%socket_handle)
             this%socket_handle = c_null_ptr
             return
@@ -784,6 +823,7 @@ contains
         if (.not. success) then
             this%error_code = -3
             this%error_string = "Failed to listen on socket"
+            call this%error_occurred%emit(this%error_code)
             call socket_close(this%socket_handle)
             this%socket_handle = c_null_ptr
             return
@@ -804,6 +844,7 @@ contains
         if (this%state%value /= ListeningState) then
             client_socket%error_code = -4
             client_socket%error_string = "Socket not in listening state"
+            call client_socket%error_occurred%emit(client_socket%error_code)
             return
         end if
 
@@ -811,6 +852,7 @@ contains
         if (.not. c_associated(client_handle)) then
             client_socket%error_code = -5
             client_socket%error_string = "Accept failed"
+            call client_socket%error_occurred%emit(client_socket%error_code)
             return
         end if
 
@@ -819,7 +861,8 @@ contains
         client_socket%state%value = ConnectedState
         client_socket%winsock_initialized = .true.
         client_socket%is_server_socket = .false.
-        ! Would need to get peer address from accept
+        client_socket%dual_stack_enabled = this%dual_stack_enabled
+        ! Would need to get peer address from accept - simplified for now
         call client_socket%connected%emit()
         call client_socket%state_changed%emit()
     end function tcpsocket_accept
@@ -899,6 +942,9 @@ contains
         this%socket_handle = create_dual_socket(IPPROTO_UDP)
         if (.not. c_associated(this%socket_handle)) then
             this%state%value = UnconnectedState
+            this%error_code = -1
+            this%error_string = "Failed to create UDP socket"
+            call this%error_occurred%emit(this%error_code)
             return
         end if
 
@@ -910,6 +956,9 @@ contains
             call this%bound_address%set("", port)
             call this%state_changed%emit()
         else
+            this%error_code = -2
+            this%error_string = "Failed to bind UDP socket"
+            call this%error_occurred%emit(this%error_code)
             call socket_close(this%socket_handle)
             this%socket_handle = c_null_ptr
             this%state%value = UnconnectedState
@@ -930,11 +979,22 @@ contains
             this%socket_handle = create_dual_socket(IPPROTO_UDP)
             if (.not. c_associated(this%socket_handle)) then
                 bytes_written = -1
+                this%error_code = -3
+                this%error_string = "Failed to create UDP socket for sending"
+                call this%error_occurred%emit(this%error_code)
                 return
             end if
         end if
 
         bytes_written = socket_sendto(this%socket_handle, data, len(data), host, port)
+
+        if (bytes_written > 0) then
+            call this%bytes_written%emit(bytes_written)
+        else if (bytes_written < 0) then
+            this%error_code = -4
+            this%error_string = "Failed to send UDP datagram"
+            call this%error_occurred%emit(this%error_code)
+        end if
     end function udpsocket_write_datagram
 
     function udpsocket_read_datagram(this, max_size) result(data)
@@ -956,6 +1016,11 @@ contains
         if (bytes_read > 0) then
             data = buffer(1:bytes_read)
             call this%ready_read%emit()
+        else if (bytes_read < 0) then
+            this%error_code = -5
+            this%error_string = "Failed to receive UDP datagram"
+            call this%error_occurred%emit(this%error_code)
+            allocate(character(len=0) :: data)
         else
             allocate(character(len=0) :: data)
         end if

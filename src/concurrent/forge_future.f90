@@ -60,12 +60,14 @@ module forge_future
         private
         type(QFuture) :: future
         logical :: finished = .false.
+        type(QThread), pointer :: worker_thread => null()
     contains
         procedure :: start => promise_start
         procedure :: finish => promise_finish
         procedure :: cancel => promise_cancel
         procedure :: report_result => promise_report_result
         procedure :: get_future => promise_get_future
+        procedure :: set_worker_thread => promise_set_worker_thread
     end type QPromise
 
     !> @brief Future watcher for monitoring completion
@@ -209,6 +211,10 @@ contains
         call this%future%mutex%lock()
         this%future%state%value = Running
         call this%future%mutex%unlock()
+        ! If we have a worker thread, start it
+        if (associated(this%worker_thread)) then
+            call this%worker_thread%start()
+        end if
     end subroutine promise_start
 
     subroutine promise_finish(this)
@@ -241,6 +247,12 @@ contains
         type(QFuture) :: future
         future = this%future
     end function promise_get_future
+
+    subroutine promise_set_worker_thread(this, thread)
+        class(QPromise), intent(inout) :: this
+        type(QThread), target, intent(in) :: thread
+        this%worker_thread => thread
+    end subroutine promise_set_worker_thread
 
     ! ========== QFutureWatcher Implementation ==========
 

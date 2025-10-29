@@ -15,6 +15,11 @@ module forge_thread_windows
     public :: win_create_semaphore, win_acquire_semaphore, win_release_semaphore
     public :: win_create_event, win_wait_event, win_set_event, win_reset_event
     public :: win_set_thread_priority
+    public :: win_get_last_error, win_get_current_thread_id
+    public :: win_tls_alloc, win_tls_get_value, win_tls_set_value, win_tls_free
+    public :: win_initialize_critical_section, win_enter_critical_section
+    public :: win_leave_critical_section, win_delete_critical_section
+    public :: win_set_thread_affinity_mask, win_get_current_processor_number
 
     ! Win32 constants
     integer(c_int), parameter :: INFINITE = -1
@@ -118,6 +123,77 @@ module forge_thread_windows
             integer(c_int) :: SetThreadPriority
         end function SetThreadPriority
 
+        ! Error handling
+        function GetLastError() bind(C, name="GetLastError")
+            import :: c_int
+            integer(c_int) :: GetLastError
+        end function GetLastError
+
+        ! Thread ID
+        function GetCurrentThreadId() bind(C, name="GetCurrentThreadId")
+            import :: c_int
+            integer(c_int) :: GetCurrentThreadId
+        end function GetCurrentThreadId
+
+        ! Thread-local storage
+        function TlsAlloc() bind(C, name="TlsAlloc")
+            import :: c_int
+            integer(c_int) :: TlsAlloc
+        end function TlsAlloc
+
+        function TlsGetValue(dwTlsIndex) bind(C, name="TlsGetValue")
+            import :: c_int, c_ptr
+            integer(c_int), value :: dwTlsIndex
+            type(c_ptr) :: TlsGetValue
+        end function TlsGetValue
+
+        function TlsSetValue(dwTlsIndex, lpTlsValue) bind(C, name="TlsSetValue")
+            import :: c_int, c_ptr
+            integer(c_int), value :: dwTlsIndex
+            type(c_ptr), value :: lpTlsValue
+            integer(c_int) :: TlsSetValue
+        end function TlsSetValue
+
+        function TlsFree(dwTlsIndex) bind(C, name="TlsFree")
+            import :: c_int
+            integer(c_int), value :: dwTlsIndex
+            integer(c_int) :: TlsFree
+        end function TlsFree
+
+        ! Critical sections
+        subroutine InitializeCriticalSection(lpCriticalSection) bind(C, name="InitializeCriticalSection")
+            import :: c_ptr
+            type(c_ptr), value :: lpCriticalSection
+        end subroutine InitializeCriticalSection
+
+        subroutine EnterCriticalSection(lpCriticalSection) bind(C, name="EnterCriticalSection")
+            import :: c_ptr
+            type(c_ptr), value :: lpCriticalSection
+        end subroutine EnterCriticalSection
+
+        subroutine LeaveCriticalSection(lpCriticalSection) bind(C, name="LeaveCriticalSection")
+            import :: c_ptr
+            type(c_ptr), value :: lpCriticalSection
+        end subroutine LeaveCriticalSection
+
+        subroutine DeleteCriticalSection(lpCriticalSection) bind(C, name="DeleteCriticalSection")
+            import :: c_ptr
+            type(c_ptr), value :: lpCriticalSection
+        end subroutine DeleteCriticalSection
+
+        ! Thread affinity
+        function SetThreadAffinityMask(hThread, dwThreadAffinityMask) bind(C, name="SetThreadAffinityMask")
+            import :: c_ptr, c_intptr_t
+            type(c_ptr), value :: hThread
+            integer(c_intptr_t), value :: dwThreadAffinityMask
+            integer(c_intptr_t) :: SetThreadAffinityMask
+        end function SetThreadAffinityMask
+
+        function GetCurrentProcessorNumber() bind(C, name="GetCurrentProcessorNumber")
+            import :: c_int
+            integer(c_int) :: GetCurrentProcessorNumber
+        end function GetCurrentProcessorNumber
+
     end interface
 
     ! Thread priority constants
@@ -136,17 +212,17 @@ contains
         type(c_ptr), intent(in), optional :: parameter
         type(c_ptr) :: thread_handle
         type(c_ptr) :: param, thread_id
-        
+
         if (present(parameter)) then
             param = parameter
         else
             param = c_null_ptr
         end if
-        
+
         thread_handle = CreateThread(c_null_ptr, 0, start_routine, param, 0, thread_id)
-        
+
         if (.not. c_associated(thread_handle)) then
-            write(error_unit, '(A)') "Failed to create thread"
+            write(error_unit, '(A, I0)') "Failed to create thread, error code: ", win_get_last_error()
         end if
     end function win_create_thread
 
@@ -177,11 +253,11 @@ contains
     !> @brief Create mutex
     function win_create_mutex() result(mutex_handle)
         type(c_ptr) :: mutex_handle
-        
+
         mutex_handle = CreateMutexA(c_null_ptr, 0, c_null_ptr)
-        
+
         if (.not. c_associated(mutex_handle)) then
-            write(error_unit, '(A)') "Failed to create mutex"
+            write(error_unit, '(A, I0)') "Failed to create mutex, error code: ", win_get_last_error()
         end if
     end function win_create_mutex
 
@@ -223,11 +299,11 @@ contains
     function win_create_semaphore(initial_count, maximum_count) result(semaphore_handle)
         integer, intent(in) :: initial_count, maximum_count
         type(c_ptr) :: semaphore_handle
-        
+
         semaphore_handle = CreateSemaphoreA(c_null_ptr, initial_count, maximum_count, c_null_ptr)
-        
+
         if (.not. c_associated(semaphore_handle)) then
-            write(error_unit, '(A)') "Failed to create semaphore"
+            write(error_unit, '(A, I0)') "Failed to create semaphore, error code: ", win_get_last_error()
         end if
     end function win_create_semaphore
 
@@ -264,21 +340,21 @@ contains
         logical, intent(in), optional :: manual_reset, initial_state
         type(c_ptr) :: event_handle
         integer(c_int) :: manual, initial
-        
+
         manual = 0
         if (present(manual_reset)) then
             if (manual_reset) manual = 1
         end if
-        
+
         initial = 0
         if (present(initial_state)) then
             if (initial_state) initial = 1
         end if
-        
+
         event_handle = CreateEventA(c_null_ptr, manual, initial, c_null_ptr)
-        
+
         if (.not. c_associated(event_handle)) then
-            write(error_unit, '(A)') "Failed to create event"
+            write(error_unit, '(A, I0)') "Failed to create event, error code: ", win_get_last_error()
         end if
     end function win_create_event
 
@@ -344,6 +420,100 @@ contains
             result = SetThreadPriority(thread_handle, win_priority)
         end if
     end subroutine win_set_thread_priority
+
+    !> @brief Get last error code
+    function win_get_last_error() result(error_code)
+        integer(c_int) :: error_code
+        error_code = GetLastError()
+    end function win_get_last_error
+
+    !> @brief Get current thread ID
+    function win_get_current_thread_id() result(thread_id)
+        integer(c_int) :: thread_id
+        thread_id = GetCurrentThreadId()
+    end function win_get_current_thread_id
+
+    !> @brief Allocate thread-local storage index
+    function win_tls_alloc() result(tls_index)
+        integer(c_int) :: tls_index
+        tls_index = TlsAlloc()
+        if (tls_index == -1) then
+            write(error_unit, '(A)') "Failed to allocate TLS index"
+        end if
+    end function win_tls_alloc
+
+    !> @brief Get thread-local storage value
+    function win_tls_get_value(tls_index) result(value)
+        integer(c_int), intent(in) :: tls_index
+        type(c_ptr) :: value
+        value = TlsGetValue(tls_index)
+    end function win_tls_get_value
+
+    !> @brief Set thread-local storage value
+    function win_tls_set_value(tls_index, value) result(success)
+        integer(c_int), intent(in) :: tls_index
+        type(c_ptr), intent(in) :: value
+        logical :: success
+        integer(c_int) :: result_code
+        result_code = TlsSetValue(tls_index, value)
+        success = (result_code /= 0)
+        if (.not. success) then
+            write(error_unit, '(A)') "Failed to set TLS value"
+        end if
+    end function win_tls_set_value
+
+    !> @brief Free thread-local storage index
+    function win_tls_free(tls_index) result(success)
+        integer(c_int), intent(in) :: tls_index
+        logical :: success
+        integer(c_int) :: result_code
+        result_code = TlsFree(tls_index)
+        success = (result_code /= 0)
+        if (.not. success) then
+            write(error_unit, '(A)') "Failed to free TLS index"
+        end if
+    end function win_tls_free
+
+    !> @brief Initialize critical section
+    subroutine win_initialize_critical_section(lpCriticalSection)
+        type(c_ptr), intent(in) :: lpCriticalSection
+        call InitializeCriticalSection(lpCriticalSection)
+    end subroutine win_initialize_critical_section
+
+    !> @brief Enter critical section
+    subroutine win_enter_critical_section(lpCriticalSection)
+        type(c_ptr), intent(in) :: lpCriticalSection
+        call EnterCriticalSection(lpCriticalSection)
+    end subroutine win_enter_critical_section
+
+    !> @brief Leave critical section
+    subroutine win_leave_critical_section(lpCriticalSection)
+        type(c_ptr), intent(in) :: lpCriticalSection
+        call LeaveCriticalSection(lpCriticalSection)
+    end subroutine win_leave_critical_section
+
+    !> @brief Delete critical section
+    subroutine win_delete_critical_section(lpCriticalSection)
+        type(c_ptr), intent(in) :: lpCriticalSection
+        call DeleteCriticalSection(lpCriticalSection)
+    end subroutine win_delete_critical_section
+
+    !> @brief Set thread affinity mask
+    function win_set_thread_affinity_mask(hThread, dwThreadAffinityMask) result(old_mask)
+        type(c_ptr), intent(in) :: hThread
+        integer(c_intptr_t), intent(in) :: dwThreadAffinityMask
+        integer(c_intptr_t) :: old_mask
+        old_mask = SetThreadAffinityMask(hThread, dwThreadAffinityMask)
+        if (old_mask == 0) then
+            write(error_unit, '(A)') "Failed to set thread affinity mask"
+        end if
+    end function win_set_thread_affinity_mask
+
+    !> @brief Get current processor number
+    function win_get_current_processor_number() result(processor_number)
+        integer(c_int) :: processor_number
+        processor_number = GetCurrentProcessorNumber()
+    end function win_get_current_processor_number
 
 end module forge_thread_windows
 

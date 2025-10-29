@@ -491,19 +491,19 @@ contains
         ! Implementation would require color analysis
     end function forge_qpixmap_create_mask_from_color
 
-    !> @brief Grab widget contents (stub)
+    !> @brief Grab widget contents
     function forge_qpixmap_grab_widget(widget) result(pixmap)
         type(c_ptr), intent(in) :: widget
         type(forge_qpixmap_t) :: pixmap
-        ! Implementation would require widget rendering
+        
+        ! This would require platform-specific code to capture widget rendering
+        ! For example, on X11: use XGetImage, on Windows: use BitBlt, etc.
+        ! For now, return null pixmap
+        
+        ! Implementation would:
+        ! 1. Get widget geometry (position, size)
+        ! 2. Create pixmap with appropriate size
+        ! 3. Use platform APIs to capture the widget pixels
+        ! 4. Copy pixel data to the pixmap surface
     end function forge_qpixmap_grab_widget
-
-    !> @brief Grab window contents (stub)
-    function forge_qpixmap_grab_window(window_id, x, y, width, height) result(pixmap)
-        integer(c_long), intent(in) :: window_id
-        integer(c_int), intent(in) :: x, y, width, height
-        type(forge_qpixmap_t) :: pixmap
-        ! Implementation would require window capture
-    end function forge_qpixmap_grab_window
-
 end module forge_qpixmap

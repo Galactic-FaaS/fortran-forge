@@ -19,6 +19,9 @@ module forge_json_parser
         integer :: pos = 1
         integer :: line = 1
         integer :: column = 1
+        logical :: has_error = .false.
+        character(len=:), allocatable :: error_msg
+        integer :: error_offset = 0
     end type parser_state
 
 contains
@@ -29,25 +32,29 @@ contains
         character(len=:), allocatable, intent(out), optional :: error_msg
         type(QJsonValue) :: value
         type(parser_state) :: state
-        
+
         state%input = json_string
         state%pos = 1
         state%line = 1
         state%column = 1
-        
+        state%has_error = .false.
+        state%error_msg = ""
+        state%error_offset = 0
+
         call skip_whitespace(state)
-        
+
         if (state%pos > len(state%input)) then
             value%value_type = JSON_NULL
-            if (present(error_msg)) error_msg = "Empty JSON input"
-            return
+            state%has_error = .true.
+            state%error_msg = "Empty JSON input"
+            state%error_offset = 0
+        else
+            value = parse_value(state)
         end if
-        
-        value = parse_value(state)
-        
+
         if (present(error_msg)) then
-            if (value%value_type == JSON_NULL .and. len(state%input) > 0) then
-                error_msg = "Parse error"
+            if (state%has_error) then
+                error_msg = state%error_msg
             else
                 error_msg = ""
             end if
@@ -59,16 +66,19 @@ contains
         type(parser_state), intent(inout) :: state
         type(QJsonValue) :: value
         character :: ch
-        
+
         call skip_whitespace(state)
-        
+
         if (state%pos > len(state%input)) then
             value%value_type = JSON_NULL
+            state%has_error = .true.
+            state%error_msg = "Unexpected end of input"
+            state%error_offset = state%pos
             return
         end if
-        
+
         ch = state%input(state%pos:state%pos)
-        
+
         select case (ch)
         case ('{')
             value = parse_object(state)
@@ -84,7 +94,9 @@ contains
             value = parse_number(state)
         case default
             value%value_type = JSON_NULL
-            write(error_unit, '(A,A,A,I0)') "Unexpected character '", ch, "' at position ", state%pos
+            state%has_error = .true.
+            state%error_msg = "Unexpected character '" // ch // "' at position " // trim(adjustl(str(state%pos)))
+            state%error_offset = state%pos
         end select
     end function parse_value
 
@@ -96,14 +108,14 @@ contains
         type(QString) :: key
         type(QJsonValue) :: val
         character :: ch
-        
+
         allocate(value%object_val)
         value%value_type = JSON_OBJECT
-        
+
         ! Skip opening brace
         state%pos = state%pos + 1
         call skip_whitespace(state)
-        
+
         ! Check for empty object
         if (state%pos <= len(state%input)) then
             if (state%input(state%pos:state%pos) == '}') then
@@ -112,37 +124,75 @@ contains
                 return
             end if
         end if
-        
+
         ! Parse key-value pairs
         do
             call skip_whitespace(state)
-            
+
             ! Parse key (must be string)
-            if (state%pos > len(state%input)) exit
-            if (state%input(state%pos:state%pos) /= '"') exit
-            
+            if (state%pos > len(state%input)) then
+                state%has_error = .true.
+                state%error_msg = "Unexpected end of input while parsing object key"
+                state%error_offset = state%pos
+                value%value_type = JSON_NULL
+                return
+            end if
+            if (state%input(state%pos:state%pos) /= '"') then
+                state%has_error = .true.
+                state%error_msg = "Expected string key in object at position " // trim(adjustl(str(state%pos)))
+                state%error_offset = state%pos
+                value%value_type = JSON_NULL
+                return
+            end if
+
             val = parse_string(state)
+            if (state%has_error) then
+                value%value_type = JSON_NULL
+                return
+            end if
             key = val%string_val
-            
+
             call skip_whitespace(state)
-            
+
             ! Expect colon
-            if (state%pos > len(state%input)) exit
-            if (state%input(state%pos:state%pos) /= ':') exit
+            if (state%pos > len(state%input)) then
+                state%has_error = .true.
+                state%error_msg = "Unexpected end of input, expected ':' after object key"
+                state%error_offset = state%pos
+                value%value_type = JSON_NULL
+                return
+            end if
+            if (state%input(state%pos:state%pos) /= ':') then
+                state%has_error = .true.
+                state%error_msg = "Expected ':' after object key at position " // trim(adjustl(str(state%pos)))
+                state%error_offset = state%pos
+                value%value_type = JSON_NULL
+                return
+            end if
             state%pos = state%pos + 1
-            
+
             call skip_whitespace(state)
-            
+
             ! Parse value
             val = parse_value(state)
+            if (state%has_error) then
+                value%value_type = JSON_NULL
+                return
+            end if
             call obj%insert(key%get(), val)
-            
+
             call skip_whitespace(state)
-            
+
             ! Check for continuation
-            if (state%pos > len(state%input)) exit
+            if (state%pos > len(state%input)) then
+                state%has_error = .true.
+                state%error_msg = "Unexpected end of input in object, expected ',' or '}'"
+                state%error_offset = state%pos
+                value%value_type = JSON_NULL
+                return
+            end if
             ch = state%input(state%pos:state%pos)
-            
+
             if (ch == '}') then
                 state%pos = state%pos + 1
                 exit
@@ -150,10 +200,14 @@ contains
                 state%pos = state%pos + 1
                 cycle
             else
-                exit
+                state%has_error = .true.
+                state%error_msg = "Expected ',' or '}' in object at position " // trim(adjustl(str(state%pos)))
+                state%error_offset = state%pos
+                value%value_type = JSON_NULL
+                return
             end if
         end do
-        
+
         value%object_val = obj
     end function parse_object
 
@@ -164,14 +218,14 @@ contains
         type(QJsonArray) :: arr
         type(QJsonValue) :: element
         character :: ch
-        
+
         allocate(value%array_val)
         value%value_type = JSON_ARRAY
-        
+
         ! Skip opening bracket
         state%pos = state%pos + 1
         call skip_whitespace(state)
-        
+
         ! Check for empty array
         if (state%pos <= len(state%input)) then
             if (state%input(state%pos:state%pos) == ']') then
@@ -180,23 +234,39 @@ contains
                 return
             end if
         end if
-        
+
         ! Parse elements
         do
             call skip_whitespace(state)
-            
-            if (state%pos > len(state%input)) exit
-            
+
+            if (state%pos > len(state%input)) then
+                state%has_error = .true.
+                state%error_msg = "Unexpected end of input in array"
+                state%error_offset = state%pos
+                value%value_type = JSON_NULL
+                return
+            end if
+
             ! Parse element
             element = parse_value(state)
+            if (state%has_error) then
+                value%value_type = JSON_NULL
+                return
+            end if
             call arr%append(element)
-            
+
             call skip_whitespace(state)
-            
+
             ! Check for continuation
-            if (state%pos > len(state%input)) exit
+            if (state%pos > len(state%input)) then
+                state%has_error = .true.
+                state%error_msg = "Unexpected end of input in array, expected ',' or ']'"
+                state%error_offset = state%pos
+                value%value_type = JSON_NULL
+                return
+            end if
             ch = state%input(state%pos:state%pos)
-            
+
             if (ch == ']') then
                 state%pos = state%pos + 1
                 exit
@@ -204,10 +274,14 @@ contains
                 state%pos = state%pos + 1
                 cycle
             else
-                exit
+                state%has_error = .true.
+                state%error_msg = "Expected ',' or ']' in array at position " // trim(adjustl(str(state%pos)))
+                state%error_offset = state%pos
+                value%value_type = JSON_NULL
+                return
             end if
         end do
-        
+
         value%array_val = arr
     end function parse_array
 
@@ -220,65 +294,95 @@ contains
         character :: ch, next_ch
         character(len=1024) :: buffer
         integer :: buf_len
-        
+        integer :: unicode_val
+
         value%value_type = JSON_STRING
-        
+
         ! Skip opening quote
         state%pos = state%pos + 1
         start_pos = state%pos
         buf_len = 0
-        
+
         ! Parse string content
         do while (state%pos <= len(state%input))
             ch = state%input(state%pos:state%pos)
-            
+
             if (ch == '"') then
                 ! End of string
                 state%pos = state%pos + 1
                 exit
             else if (ch == '\') then
                 ! Escape sequence
-                if (state%pos + 1 <= len(state%input)) then
-                    next_ch = state%input(state%pos+1:state%pos+1)
-                    state%pos = state%pos + 2
-                    
-                    select case (next_ch)
-                    case ('"')
-                        buf_len = buf_len + 1
-                        buffer(buf_len:buf_len) = '"'
-                    case ('\')
-                        buf_len = buf_len + 1
-                        buffer(buf_len:buf_len) = '\'
-                    case ('/')
-                        buf_len = buf_len + 1
-                        buffer(buf_len:buf_len) = '/'
-                    case ('b')
-                        buf_len = buf_len + 1
-                        buffer(buf_len:buf_len) = achar(8)  ! Backspace
-                    case ('f')
-                        buf_len = buf_len + 1
-                        buffer(buf_len:buf_len) = achar(12)  ! Form feed
-                    case ('n')
-                        buf_len = buf_len + 1
-                        buffer(buf_len:buf_len) = achar(10)  ! Newline
-                    case ('r')
-                        buf_len = buf_len + 1
-                        buffer(buf_len:buf_len) = achar(13)  ! Carriage return
-                    case ('t')
-                        buf_len = buf_len + 1
-                        buffer(buf_len:buf_len) = achar(9)  ! Tab
-                    case ('u')
-                        ! Unicode escape (simplified - just copy for now)
-                        buf_len = buf_len + 1
-                        buffer(buf_len:buf_len) = '?'
-                        state%pos = state%pos + 4  ! Skip 4 hex digits
-                    case default
-                        buf_len = buf_len + 1
-                        buffer(buf_len:buf_len) = next_ch
-                    end select
-                else
-                    exit
+                if (state%pos + 1 > len(state%input)) then
+                    state%has_error = .true.
+                    state%error_msg = "Unexpected end of input in string escape sequence"
+                    state%error_offset = state%pos
+                    value%value_type = JSON_NULL
+                    return
                 end if
+                next_ch = state%input(state%pos+1:state%pos+1)
+                state%pos = state%pos + 2
+
+                select case (next_ch)
+                case ('"')
+                    buf_len = buf_len + 1
+                    buffer(buf_len:buf_len) = '"'
+                case ('\')
+                    buf_len = buf_len + 1
+                    buffer(buf_len:buf_len) = '\'
+                case ('/')
+                    buf_len = buf_len + 1
+                    buffer(buf_len:buf_len) = '/'
+                case ('b')
+                    buf_len = buf_len + 1
+                    buffer(buf_len:buf_len) = achar(8)  ! Backspace
+                case ('f')
+                    buf_len = buf_len + 1
+                    buffer(buf_len:buf_len) = achar(12)  ! Form feed
+                case ('n')
+                    buf_len = buf_len + 1
+                    buffer(buf_len:buf_len) = achar(10)  ! Newline
+                case ('r')
+                    buf_len = buf_len + 1
+                    buffer(buf_len:buf_len) = achar(13)  ! Carriage return
+                case ('t')
+                    buf_len = buf_len + 1
+                    buffer(buf_len:buf_len) = achar(9)  ! Tab
+                case ('u')
+                    ! Unicode escape sequence
+                    if (state%pos + 3 > len(state%input)) then
+                        state%has_error = .true.
+                        state%error_msg = "Incomplete Unicode escape sequence"
+                        state%error_offset = state%pos - 2
+                        value%value_type = JSON_NULL
+                        return
+                    end if
+                    unicode_val = parse_unicode_hex(state%input(state%pos:state%pos+3))
+                    if (unicode_val == -1) then
+                        state%has_error = .true.
+                        state%error_msg = "Invalid Unicode escape sequence"
+                        state%error_offset = state%pos - 2
+                        value%value_type = JSON_NULL
+                        return
+                    end if
+                    ! For now, represent Unicode as replacement character
+                    buf_len = buf_len + 1
+                    buffer(buf_len:buf_len) = achar(255)  ! Replacement character
+                    state%pos = state%pos + 4
+                case default
+                    state%has_error = .true.
+                    state%error_msg = "Invalid escape sequence '\ " // next_ch // "'"
+                    state%error_offset = state%pos - 2
+                    value%value_type = JSON_NULL
+                    return
+                end select
+            else if (ch < ' ' .and. ch /= achar(9)) then
+                ! Control characters not allowed in strings
+                state%has_error = .true.
+                state%error_msg = "Control character in string at position " // trim(adjustl(str(state%pos)))
+                state%error_offset = state%pos
+                value%value_type = JSON_NULL
+                return
             else
                 ! Regular character
                 buf_len = buf_len + 1
@@ -286,7 +390,15 @@ contains
                 state%pos = state%pos + 1
             end if
         end do
-        
+
+        if (state%pos > len(state%input)) then
+            state%has_error = .true.
+            state%error_msg = "Unterminated string"
+            state%error_offset = start_pos - 1
+            value%value_type = JSON_NULL
+            return
+        end if
+
         call value%string_val%set(buffer(1:buf_len))
     end function parse_string
 
@@ -298,28 +410,56 @@ contains
         character(len=:), allocatable :: num_str
         real :: num_val
         integer :: iostat
-        
+
         value%value_type = JSON_NUMBER
         start_pos = state%pos
-        
+
         ! Optional minus
         if (state%input(state%pos:state%pos) == '-') then
             state%pos = state%pos + 1
         end if
-        
-        ! Integer part
-        do while (state%pos <= len(state%input))
-            if (is_digit(state%input(state%pos:state%pos))) then
-                state%pos = state%pos + 1
-            else
-                exit
+
+        ! Integer part - must have at least one digit
+        if (state%pos > len(state%input) .or. .not. is_digit(state%input(state%pos:state%pos))) then
+            state%has_error = .true.
+            state%error_msg = "Invalid number format at position " // trim(adjustl(str(start_pos)))
+            state%error_offset = start_pos
+            value%value_type = JSON_NULL
+            return
+        end if
+
+        ! Leading zero check
+        if (state%input(state%pos:state%pos) == '0') then
+            state%pos = state%pos + 1
+            ! If next character is digit, it's invalid (leading zero)
+            if (state%pos <= len(state%input) .and. is_digit(state%input(state%pos:state%pos))) then
+                state%has_error = .true.
+                state%error_msg = "Leading zero not allowed in number at position " // trim(adjustl(str(start_pos)))
+                state%error_offset = start_pos
+                value%value_type = JSON_NULL
+                return
             end if
-        end do
-        
+        else
+            do while (state%pos <= len(state%input))
+                if (is_digit(state%input(state%pos:state%pos))) then
+                    state%pos = state%pos + 1
+                else
+                    exit
+                end if
+            end do
+        end if
+
         ! Optional decimal part
         if (state%pos <= len(state%input)) then
             if (state%input(state%pos:state%pos) == '.') then
                 state%pos = state%pos + 1
+                if (state%pos > len(state%input) .or. .not. is_digit(state%input(state%pos:state%pos))) then
+                    state%has_error = .true.
+                    state%error_msg = "Invalid decimal part in number at position " // trim(adjustl(str(state%pos)))
+                    state%error_offset = state%pos
+                    value%value_type = JSON_NULL
+                    return
+                end if
                 do while (state%pos <= len(state%input))
                     if (is_digit(state%input(state%pos:state%pos))) then
                         state%pos = state%pos + 1
@@ -329,7 +469,7 @@ contains
                 end do
             end if
         end if
-        
+
         ! Optional exponent
         if (state%pos <= len(state%input)) then
             if (state%input(state%pos:state%pos) == 'e' .or. &
@@ -341,6 +481,13 @@ contains
                         state%pos = state%pos + 1
                     end if
                 end if
+                if (state%pos > len(state%input) .or. .not. is_digit(state%input(state%pos:state%pos))) then
+                    state%has_error = .true.
+                    state%error_msg = "Invalid exponent in number at position " // trim(adjustl(str(state%pos)))
+                    state%error_offset = state%pos
+                    value%value_type = JSON_NULL
+                    return
+                end if
                 do while (state%pos <= len(state%input))
                     if (is_digit(state%input(state%pos:state%pos))) then
                         state%pos = state%pos + 1
@@ -350,25 +497,29 @@ contains
                 end do
             end if
         end if
-        
+
         end_pos = state%pos - 1
         num_str = state%input(start_pos:end_pos)
-        
+
         read(num_str, *, iostat=iostat) num_val
-        if (iostat == 0) then
-            value%number_val = num_val
-        else
-            value%number_val = 0.0
+        if (iostat /= 0) then
+            state%has_error = .true.
+            state%error_msg = "Invalid number format: " // num_str
+            state%error_offset = start_pos
+            value%value_type = JSON_NULL
+            return
         end if
+
+        value%number_val = num_val
     end function parse_number
 
     !> @brief Parse JSON boolean
     function parse_boolean(state) result(value)
         type(parser_state), intent(inout) :: state
         type(QJsonValue) :: value
-        
+
         value%value_type = JSON_BOOL
-        
+
         if (state%pos + 3 <= len(state%input)) then
             if (state%input(state%pos:state%pos+3) == 'true') then
                 value%bool_val = .true.
@@ -376,7 +527,7 @@ contains
                 return
             end if
         end if
-        
+
         if (state%pos + 4 <= len(state%input)) then
             if (state%input(state%pos:state%pos+4) == 'false') then
                 value%bool_val = .false.
@@ -384,7 +535,10 @@ contains
                 return
             end if
         end if
-        
+
+        state%has_error = .true.
+        state%error_msg = "Invalid boolean value at position " // trim(adjustl(str(state%pos)))
+        state%error_offset = state%pos
         value%value_type = JSON_NULL
     end function parse_boolean
 
@@ -392,7 +546,7 @@ contains
     function parse_null(state) result(value)
         type(parser_state), intent(inout) :: state
         type(QJsonValue) :: value
-        
+
         if (state%pos + 3 <= len(state%input)) then
             if (state%input(state%pos:state%pos+3) == 'null') then
                 value%value_type = JSON_NULL
@@ -400,7 +554,10 @@ contains
                 return
             end if
         end if
-        
+
+        state%has_error = .true.
+        state%error_msg = "Invalid null value at position " // trim(adjustl(str(state%pos)))
+        state%error_offset = state%pos
         value%value_type = JSON_NULL
     end function parse_null
 
@@ -431,6 +588,38 @@ contains
         logical :: is_d
         is_d = (ch >= '0' .and. ch <= '9')
     end function is_digit
+
+    !> @brief Parse Unicode hex value
+    function parse_unicode_hex(hex_str) result(value)
+        character(len=4), intent(in) :: hex_str
+        integer :: value
+        integer :: i, digit
+        character :: ch
+
+        value = 0
+        do i = 1, 4
+            ch = hex_str(i:i)
+            if (ch >= '0' .and. ch <= '9') then
+                digit = ichar(ch) - ichar('0')
+            else if (ch >= 'a' .and. ch <= 'f') then
+                digit = ichar(ch) - ichar('a') + 10
+            else if (ch >= 'A' .and. ch <= 'F') then
+                digit = ichar(ch) - ichar('A') + 10
+            else
+                value = -1  ! Invalid hex digit
+                return
+            end if
+            value = value * 16 + digit
+        end do
+    end function parse_unicode_hex
+
+    !> @brief Convert integer to string (utility function)
+    function str(i) result(s)
+        integer, intent(in) :: i
+        character(len=20) :: s
+        write(s, '(I0)') i
+        s = trim(adjustl(s))
+    end function str
 
     !> @brief Complete JSON stringifier - produces valid JSON
     recursive function json_stringify_complete(value, pretty, indent_level) result(json_string)

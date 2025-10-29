@@ -46,4 +46,7 @@ endif()
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/test_network.f90)
     add_forge_test(test_network test_network.f90)
 endif()
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/test_qt_test.f90)
+    add_forge_test(test_qt_test test_qt_test.f90)
+endif()
 

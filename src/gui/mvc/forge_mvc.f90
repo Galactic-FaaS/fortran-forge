@@ -16,6 +16,7 @@ module forge_mvc
     public :: QAbstractItemView, QListView, QTableView, QTreeView
     public :: QItemDelegate, QItemSelectionModel
     public :: QAbstractListModel, QAbstractTableModel, QAbstractTreeModel
+    public :: QStandardItem, QStandardItemModel, QSortFilterProxyModel
     public :: Qt_DisplayRole, Qt_EditRole, Qt_ToolTipRole, Qt_StatusTipRole
     public :: Qt_UserRole, Qt_Horizontal, Qt_Vertical
     public :: SelectionMode, SingleSelection, MultiSelection, ExtendedSelection
@@ -337,6 +338,197 @@ module forge_mvc
         procedure :: column_count => qabstracttreemodel_column_count
         procedure :: init => qabstracttreemodel_init
     end type QAbstractTreeModel
+
+    !> @brief Standard item for QStandardItemModel
+    type :: QStandardItem
+        private
+        type(qstandarditem) :: qt_item
+        character(len=:), allocatable :: text
+        character(len=:), allocatable :: tooltip
+        character(len=:), allocatable :: status_tip
+        character(len=:), allocatable :: whats_this
+        integer :: flags = Qt_ItemIsSelectable + Qt_ItemIsEnabled + Qt_ItemIsEditable
+        type(QStandardItem), pointer :: parent_item => null()
+        type(QStandardItem), dimension(:), allocatable :: child_items
+        integer :: row = -1
+        integer :: column = -1
+        logical :: checkable = .false.
+        logical :: checked = .false.
+        logical :: tristate = .false.
+        logical :: editable = .true.
+        logical :: selectable = .true.
+        logical :: enabled = .true.
+        logical :: drag_enabled = .false.
+        logical :: drop_enabled = .false.
+    contains
+        procedure :: set_text => qstandarditem_set_text
+        procedure :: text => qstandarditem_text
+        procedure :: set_tooltip => qstandarditem_set_tooltip
+        procedure :: tooltip => qstandarditem_tooltip
+        procedure :: set_status_tip => qstandarditem_set_status_tip
+        procedure :: status_tip => qstandarditem_status_tip
+        procedure :: set_whats_this => qstandarditem_set_whats_this
+        procedure :: whats_this => qstandarditem_whats_this
+        procedure :: set_flags => qstandarditem_set_flags
+        procedure :: flags => qstandarditem_flags
+        procedure :: set_checkable => qstandarditem_set_checkable
+        procedure :: is_checkable => qstandarditem_is_checkable
+        procedure :: set_check_state => qstandarditem_set_check_state
+        procedure :: check_state => qstandarditem_check_state
+        procedure :: set_editable => qstandarditem_set_editable
+        procedure :: is_editable => qstandarditem_is_editable
+        procedure :: set_selectable => qstandarditem_set_selectable
+        procedure :: is_selectable => qstandarditem_is_selectable
+        procedure :: set_enabled => qstandarditem_set_enabled
+        procedure :: is_enabled => qstandarditem_is_enabled
+        procedure :: set_drag_enabled => qstandarditem_set_drag_enabled
+        procedure :: is_drag_enabled => qstandarditem_is_drag_enabled
+        procedure :: set_drop_enabled => qstandarditem_set_drop_enabled
+        procedure :: is_drop_enabled => qstandarditem_is_drop_enabled
+        procedure :: row_count => qstandarditem_row_count
+        procedure :: column_count => qstandarditem_column_count
+        procedure :: has_children => qstandarditem_has_children
+        procedure :: child => qstandarditem_child
+        procedure :: parent => qstandarditem_parent
+        procedure :: row => qstandarditem_row
+        procedure :: column => qstandarditem_column
+        procedure :: index => qstandarditem_index
+        procedure :: model => qstandarditem_model
+        procedure :: insert_row => qstandarditem_insert_row
+        procedure :: insert_rows => qstandarditem_insert_rows
+        procedure :: insert_column => qstandarditem_insert_column
+        procedure :: insert_columns => qstandarditem_insert_columns
+        procedure :: remove_row => qstandarditem_remove_row
+        procedure :: remove_rows => qstandarditem_remove_rows
+        procedure :: remove_column => qstandarditem_remove_column
+        procedure :: remove_columns => qstandarditem_remove_columns
+        procedure :: append_row => qstandarditem_append_row
+        procedure :: append_rows => qstandarditem_append_rows
+        procedure :: append_column => qstandarditem_append_column
+        procedure :: append_columns => qstandarditem_append_columns
+        procedure :: take_row => qstandarditem_take_row
+        procedure :: take_column => qstandarditem_take_column
+        procedure :: take_child => qstandarditem_take_child
+        procedure :: sort_children => qstandarditem_sort_children
+        procedure :: clone => qstandarditem_clone
+        procedure :: data => qstandarditem_data
+        procedure :: set_data => qstandarditem_set_data
+        procedure :: clear_data => qstandarditem_clear_data
+        procedure :: init => qstandarditem_init
+        procedure :: set_child => qstandarditem_set_child
+    end type QStandardItem
+
+    !> @brief Standard item model implementation
+    type, extends(QAbstractItemModel) :: QStandardItemModel
+        private
+        type(qstandarditemmodel) :: qt_model
+        type(QStandardItem), pointer :: root_item => null()
+        logical :: sort_role_used = .false.
+        integer :: sort_role = Qt_DisplayRole
+    contains
+        procedure :: index => qstandarditemmodel_index
+        procedure :: parent => qstandarditemmodel_parent
+        procedure :: row_count => qstandarditemmodel_row_count
+        procedure :: column_count => qstandarditemmodel_column_count
+        procedure :: data => qstandarditemmodel_data
+        procedure :: set_data => qstandarditemmodel_set_data
+        procedure :: flags => qstandarditemmodel_flags
+        procedure :: header_data => qstandarditemmodel_header_data
+        procedure :: set_header_data => qstandarditemmodel_set_header_data
+        procedure :: insert_rows => qstandarditemmodel_insert_rows
+        procedure :: insert_columns => qstandarditemmodel_insert_columns
+        procedure :: remove_rows => qstandarditemmodel_remove_rows
+        procedure :: remove_columns => qstandarditemmodel_remove_columns
+        procedure :: set_item => qstandarditemmodel_set_item
+        procedure :: item => qstandarditemmodel_item
+        procedure :: item_from_index => qstandarditemmodel_item_from_index
+        procedure :: index_from_item => qstandarditemmodel_index_from_item
+        procedure :: invisible_root_item => qstandarditemmodel_invisible_root_item
+        procedure :: horizontal_header_item => qstandarditemmodel_horizontal_header_item
+        procedure :: set_horizontal_header_item => qstandarditemmodel_set_horizontal_header_item
+        procedure :: vertical_header_item => qstandarditemmodel_vertical_header_item
+        procedure :: set_vertical_header_item => qstandarditemmodel_set_vertical_header_item
+        procedure :: set_horizontal_header_labels => qstandarditemmodel_set_horizontal_header_labels
+        procedure :: set_vertical_header_labels => qstandarditemmodel_set_vertical_header_labels
+        procedure :: horizontal_header_labels => qstandarditemmodel_horizontal_header_labels
+        procedure :: vertical_header_labels => qstandarditemmodel_vertical_header_labels
+        procedure :: set_row_count => qstandarditemmodel_set_row_count
+        procedure :: set_column_count => qstandarditemmodel_set_column_count
+        procedure :: append_row => qstandarditemmodel_append_row
+        procedure :: append_column => qstandarditemmodel_append_column
+        procedure :: insert_row => qstandarditemmodel_insert_row
+        procedure :: insert_column => qstandarditemmodel_insert_column
+        procedure :: take_row => qstandarditemmodel_take_row
+        procedure :: take_column => qstandarditemmodel_take_column
+        procedure :: take_item => qstandarditemmodel_take_item
+        procedure :: take_horizontal_header_item => qstandarditemmodel_take_horizontal_header_item
+        procedure :: take_vertical_header_item => qstandarditemmodel_take_vertical_header_item
+        procedure :: sort => qstandarditemmodel_sort
+        procedure :: set_sort_role => qstandarditemmodel_set_sort_role
+        procedure :: sort_role => qstandarditemmodel_sort_role
+        procedure :: find_items => qstandarditemmodel_find_items
+        procedure :: clear => qstandarditemmodel_clear
+        procedure :: init => qstandarditemmodel_init
+    end type QStandardItemModel
+
+    !> @brief Sort and filter proxy model
+    type, extends(QAbstractItemModel) :: QSortFilterProxyModel
+        private
+        type(qsortfilterproxymodel) :: qt_proxy
+        type(QAbstractItemModel), pointer :: source_model => null()
+        logical :: dynamic_sort_filter = .true.
+        logical :: filter_case_sensitivity = .false.
+        integer :: filter_key_column = 0
+        integer :: filter_role = Qt_DisplayRole
+        integer :: sort_case_sensitivity = .false.
+        integer :: sort_role = Qt_DisplayRole
+        character(len=:), allocatable :: filter_reg_exp
+        character(len=:), allocatable :: filter_wildcard
+        character(len=:), allocatable :: filter_fixed_string
+    contains
+        procedure :: set_source_model => qsortfilterproxymodel_set_source_model
+        procedure :: source_model => qsortfilterproxymodel_source_model
+        procedure :: set_filter_reg_exp => qsortfilterproxymodel_set_filter_reg_exp
+        procedure :: filter_reg_exp => qsortfilterproxymodel_filter_reg_exp
+        procedure :: set_filter_wildcard => qsortfilterproxymodel_set_filter_wildcard
+        procedure :: filter_wildcard => qsortfilterproxymodel_filter_wildcard
+        procedure :: set_filter_fixed_string => qsortfilterproxymodel_set_filter_fixed_string
+        procedure :: filter_fixed_string => qsortfilterproxymodel_filter_fixed_string
+        procedure :: set_filter_case_sensitivity => qsortfilterproxymodel_set_filter_case_sensitivity
+        procedure :: filter_case_sensitivity => qsortfilterproxymodel_filter_case_sensitivity
+        procedure :: set_filter_key_column => qsortfilterproxymodel_set_filter_key_column
+        procedure :: filter_key_column => qsortfilterproxymodel_filter_key_column
+        procedure :: set_filter_role => qsortfilterproxymodel_set_filter_role
+        procedure :: filter_role => qsortfilterproxymodel_filter_role
+        procedure :: set_sort_case_sensitivity => qsortfilterproxymodel_set_sort_case_sensitivity
+        procedure :: sort_case_sensitivity => qsortfilterproxymodel_sort_case_sensitivity
+        procedure :: set_sort_role => qsortfilterproxymodel_set_sort_role
+        procedure :: sort_role => qsortfilterproxymodel_sort_role
+        procedure :: set_dynamic_sort_filter => qsortfilterproxymodel_set_dynamic_sort_filter
+        procedure :: dynamic_sort_filter => qsortfilterproxymodel_dynamic_sort_filter
+        procedure :: set_sort_locale_aware => qsortfilterproxymodel_set_sort_locale_aware
+        procedure :: is_sort_locale_aware => qsortfilterproxymodel_is_sort_locale_aware
+        procedure :: sort => qsortfilterproxymodel_sort
+        procedure :: invalidate => qsortfilterproxymodel_invalidate
+        procedure :: index => qsortfilterproxymodel_index
+        procedure :: parent => qsortfilterproxymodel_parent
+        procedure :: sibling => qsortfilterproxymodel_sibling
+        procedure :: row_count => qsortfilterproxymodel_row_count
+        procedure :: column_count => qsortfilterproxymodel_column_count
+        procedure :: data => qsortfilterproxymodel_data
+        procedure :: set_data => qsortfilterproxymodel_set_data
+        procedure :: flags => qsortfilterproxymodel_flags
+        procedure :: header_data => qsortfilterproxymodel_header_data
+        procedure :: set_header_data => qsortfilterproxymodel_set_header_data
+        procedure :: map_to_source => qsortfilterproxymodel_map_to_source
+        procedure :: map_from_source => qsortfilterproxymodel_map_from_source
+        procedure :: map_selection_to_source => qsortfilterproxymodel_map_selection_to_source
+        procedure :: map_selection_from_source => qsortfilterproxymodel_map_selection_from_source
+        procedure :: filter_accepts_row => qsortfilterproxymodel_filter_accepts_row
+        procedure :: filter_accepts_column => qsortfilterproxymodel_filter_accepts_column
+        procedure :: less_than => qsortfilterproxymodel_less_than
+        procedure :: init => qsortfilterproxymodel_init
+    end type QSortFilterProxyModel
 
     !> Signal types for MVC framework
     type :: signal_model_changed

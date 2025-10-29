@@ -15,6 +15,8 @@ module forge_accessibility
     implicit none
     private
 
+    type(QAccessible) :: global_accessible_manager
+
     public :: QAccessibleInterface
     public :: QAccessibleObject
     public :: QAccessibleWidget
@@ -449,6 +451,8 @@ module forge_accessibility
         procedure :: navigate_impl => accessible_object_navigate_impl
         procedure :: do_action => accessible_object_do_action
         procedure :: key_bindings_for_action => accessible_object_key_bindings_for_action
+        procedure :: get_previous_sibling => accessible_object_get_previous_sibling
+        procedure :: get_next_sibling => accessible_object_get_next_sibling
     end type QAccessibleObject
 
     !> @brief Widget-specific accessible implementation
@@ -476,6 +480,9 @@ module forge_accessibility
         type(QAccessibleInterface), dimension(:), allocatable :: accessible_objects
         integer :: object_count = 0
         logical :: initialized = .false.
+        type(QAccessible_Windows_UIA) :: windows_uia
+        type(QAccessible_Linux_AT_SPI) :: linux_atspi
+        type(QAccessible_Mac_NSAccessibility) :: mac_nsaccessibility
     contains
         procedure :: initialize => accessible_initialize
         procedure :: shutdown => accessible_shutdown
@@ -1076,33 +1083,58 @@ contains
     function accessible_table_get_row_header(this) result(header)
         class(QAccessibleTable), intent(in) :: this
         class(QAccessibleInterface), pointer :: header
-        header => null()  ! Not implemented
+        allocate(QAccessibleObject :: header)
+        call header%set_role(QAccessible_RowHeader)
+        call header%set_name("Row Header")
     end function accessible_table_get_row_header
 
     function accessible_table_get_column_header(this) result(header)
         class(QAccessibleTable), intent(in) :: this
         class(QAccessibleInterface), pointer :: header
-        header => null()  ! Not implemented
+        allocate(QAccessibleObject :: header)
+        call header%set_role(QAccessible_ColumnHeader)
+        call header%set_name("Column Header")
     end function accessible_table_get_column_header
 
     function accessible_table_get_cell_at(this, row, column) result(cell)
         class(QAccessibleTable), intent(in) :: this
         integer, intent(in) :: row, column
         class(QAccessibleInterface), pointer :: cell
-        cell => null()  ! Not implemented
+        if (row < 0 .or. row >= this%row_count .or. column < 0 .or. column >= this%column_count) then
+            cell => null()
+            return
+        end if
+        allocate(QAccessibleObject :: cell)
+        call cell%set_role(QAccessible_Cell)
+        call cell%set_name("Cell (" // forge_string_from_int(row) // "," // forge_string_from_int(column) // ")")
+        type(QAccessibleTableCell) :: cell_data
+        cell_data%row = row
+        cell_data%column = column
+        cell_data%row_span = 1
+        cell_data%column_span = 1
+        cell_data%is_selected = .false.
+        call cell%set_table_cell(cell_data)
     end function accessible_table_get_cell_at
 
     function accessible_table_get_cell_row(this, cell) result(row)
-        integer, intent(in) :: cell
+        class(QAccessibleInterface), intent(in) :: cell
         integer :: row
-        row = -1  ! Not implemented
+        if (associated(cell%table_cell)) then
+            row = cell%table_cell%get_row()
+        else
+            row = -1
+        end if
     end function accessible_table_get_cell_row
 
     function accessible_table_get_cell_column(this, cell) result(column)
         class(QAccessibleTable), intent(in) :: this
-        integer, intent(in) :: cell
+        class(QAccessibleInterface), intent(in) :: cell
         integer :: column
-        column = -1  ! Not implemented
+        if (associated(cell%table_cell)) then
+            column = cell%table_cell%get_column()
+        else
+            column = -1
+        end if
     end function accessible_table_get_cell_column
 
     function accessible_table_is_row_selected(this, row) result(selected)
@@ -1745,6 +1777,48 @@ contains
         allocate(key_bindings(0))  ! No key bindings by default
     end function accessible_object_key_bindings_for_action
 
+    function accessible_object_get_previous_sibling(this) result(sibling)
+        class(QAccessibleObject), intent(in) :: this
+        class(QAccessibleInterface), pointer :: sibling
+        class(forge_qobject), pointer :: parent, prev
+        integer :: index
+
+        sibling => null()
+        if (.not. associated(this%object)) return
+
+        parent => this%object%get_parent()
+        if (.not. associated(parent)) return
+
+        index = this%index_in_parent()
+        if (index > 0) then
+            prev => parent%find_child_by_index(index - 1)
+            if (associated(prev)) then
+                allocate(QAccessibleObject :: sibling)
+                call sibling%init(prev)
+            end if
+        end if
+    end function accessible_object_get_previous_sibling
+
+    function accessible_object_get_next_sibling(this) result(sibling)
+        class(QAccessibleObject), intent(in) :: this
+        class(QAccessibleInterface), pointer :: sibling
+        class(forge_qobject), pointer :: parent, next
+        integer :: index
+
+        sibling => null()
+        if (.not. associated(this%object)) return
+
+        parent => this%object%get_parent()
+        if (.not. associated(parent)) return
+
+        index = this%index_in_parent()
+        next => parent%find_child_by_index(index + 1)
+        if (associated(next)) then
+            allocate(QAccessibleObject :: sibling)
+            call sibling%init(next)
+        end if
+    end function accessible_object_get_next_sibling
+
     ! ========== QAccessibleWidget Implementation ==========
 
     subroutine accessible_widget_init(this, qobject, role)
@@ -1788,6 +1862,11 @@ contains
         this%has_focus = has_focus
         if (has_focus) then
             call this%state%set_flag(QAccessible_Focused)
+            ! Notify accessibility system
+            type(QAccessibleEvent) :: focus_event
+            call focus_event%set_accessible_event_type(QAccessible_Event_Focus)
+            call focus_event%set_accessible_object(this)
+            call global_accessible_manager%notify_event(focus_event)
         else
             call this%state%clear_flag(QAccessible_Focused)
         end if
@@ -1845,8 +1924,12 @@ contains
         class(QAccessibleInterface), pointer :: target
 
         target => null()
-        ! Simplified keyboard navigation - in a real implementation,
-        ! this would find the next focusable widget in the specified direction
+        select case (direction)
+        case (QAccessible_Up, QAccessible_Left)
+            target => this%get_previous_sibling()
+        case (QAccessible_Down, QAccessible_Right)
+            target => this%get_next_sibling()
+        end select
     end function accessible_widget_navigate_keyboard
 
     ! ========== QAccessible Implementation ==========
@@ -1856,6 +1939,9 @@ contains
         if (this%initialized) return
         this%initialized = .true.
         allocate(this%accessible_objects(10))  ! Initial capacity
+        call this%windows_uia%initialize_platform()
+        call this%linux_atspi%initialize_platform()
+        call this%mac_nsaccessibility%initialize_platform()
         write(output_unit, '(A)') "[ACCESSIBILITY] Initialized accessibility framework"
     end subroutine accessible_initialize
 
@@ -1910,8 +1996,21 @@ contains
     subroutine accessible_notify_event(this, event)
         class(QAccessible), intent(inout) :: this
         type(QAccessibleEvent), intent(in) :: event
+        class(QAccessibleInterface), pointer :: obj
+
+        obj => event%get_accessible_object()
+        if (.not. associated(obj)) return
 
         ! Notify platform accessibility APIs about the event
+        select case (this%windows_uia%get_platform_type())
+        case (1)
+            call this%windows_uia%notify_accessible_event(event)
+        case (2)
+            call this%linux_atspi%notify_accessible_event(event)
+        case (3)
+            call this%mac_nsaccessibility%notify_accessible_event(event)
+        end select
+
         select case (event%get_accessible_event_type())
         case (QAccessible_Event_NameChanged)
             call this%notify_name_changed(event)

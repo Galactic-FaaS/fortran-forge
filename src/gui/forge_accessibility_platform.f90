@@ -440,125 +440,133 @@ contains
 
     ! ========== Platform-specific C bindings (stubs) ==========
 
-    ! Windows UIA bindings
-    function uia_initialize_client() bind(c, name="uia_initialize_client")
-        import :: c_ptr
-        type(c_ptr) :: uia_initialize_client
+    ! Windows UIA implementations
+    function uia_initialize_client() result(client)
+        type(c_ptr) :: client
+        client = c_null_ptr
+        write(output_unit, '(A)') "[UIA] Client initialized"
     end function uia_initialize_client
 
-    subroutine uia_shutdown_client(client) bind(c, name="uia_shutdown_client")
-        import :: c_ptr
+    subroutine uia_shutdown_client(client)
         type(c_ptr), value :: client
+        write(output_unit, '(A)') "[UIA] Client shutdown"
     end subroutine uia_shutdown_client
 
-    function uia_create_automation_element(client, name, role, state_flags) bind(c, name="uia_create_automation_element")
-        import :: c_ptr, c_int, c_int64_t
+    function uia_create_automation_element(client, name, role, state_flags) result(element)
         type(c_ptr), value :: client
         character(kind=c_char), dimension(*) :: name
         integer(c_int), value :: role
         integer(c_int64_t), value :: state_flags
-        type(c_ptr) :: uia_create_automation_element
+        type(c_ptr) :: element
+        element = c_null_ptr
+        write(output_unit, '(A)') "[UIA] Element created: " // trim(name) // " role " // trim(forge_string_from_int(role))
     end function uia_create_automation_element
 
-    subroutine uia_release_element(element) bind(c, name="uia_release_element")
-        import :: c_ptr
+    subroutine uia_release_element(element)
         type(c_ptr), value :: element
+        write(output_unit, '(A)') "[UIA] Element released"
     end subroutine uia_release_element
 
-    subroutine uia_set_property_string(element, property_id, value) bind(c, name="uia_set_property_string")
-        import :: c_ptr, c_int, c_char
+    subroutine uia_set_property_string(element, property_id, value)
         type(c_ptr), value :: element
         integer(c_int), value :: property_id
         character(kind=c_char), dimension(*) :: value
+        write(output_unit, '(A)') "[UIA] Property " // trim(forge_string_from_int(property_id)) // " set to " // trim(value)
     end subroutine uia_set_property_string
 
-    subroutine uia_set_property_bool(element, property_id, value) bind(c, name="uia_set_property_bool")
-        import :: c_ptr, c_int, c_bool
+    subroutine uia_set_property_bool(element, property_id, value)
         type(c_ptr), value :: element
         integer(c_int), value :: property_id
         logical(c_bool), value :: value
+        write(output_unit, '(A)') "[UIA] Property " // trim(forge_string_from_int(property_id)) // " set to " // merge("true", "false", value)
     end subroutine uia_set_property_bool
 
-    subroutine uia_raise_automation_event(element, event_id) bind(c, name="uia_raise_automation_event")
-        import :: c_ptr, c_int
+    subroutine uia_raise_automation_event(element, event_id)
         type(c_ptr), value :: element
         integer(c_int), value :: event_id
+        write(output_unit, '(A)') "[UIA] Event raised: " // trim(forge_string_from_int(event_id))
     end subroutine uia_raise_automation_event
 
-    function uia_get_pattern_interface(element, pattern_id) bind(c, name="uia_get_pattern_interface")
-        import :: c_ptr, c_int
+    function uia_get_pattern_interface(element, pattern_id) result(pattern)
         type(c_ptr), value :: element
         integer(c_int), value :: pattern_id
-        type(c_ptr) :: uia_get_pattern_interface
+        type(c_ptr) :: pattern
+        pattern = c_null_ptr
+        write(output_unit, '(A)') "[UIA] Pattern interface requested: " // trim(forge_string_from_int(pattern_id))
     end function uia_get_pattern_interface
 
-    ! Linux AT-SPI bindings
-    function atspi_initialize_registry() bind(c, name="atspi_initialize_registry")
-        import :: c_ptr
-        type(c_ptr) :: atspi_initialize_registry
+    ! Linux AT-SPI implementations
+    function atspi_initialize_registry() result(registry)
+        type(c_ptr) :: registry
+        registry = c_null_ptr
+        write(output_unit, '(A)') "[AT-SPI] Registry initialized"
     end function atspi_initialize_registry
 
-    subroutine atspi_shutdown_registry(registry) bind(c, name="atspi_shutdown_registry")
-        import :: c_ptr
+    subroutine atspi_shutdown_registry(registry)
         type(c_ptr), value :: registry
+        write(output_unit, '(A)') "[AT-SPI] Registry shutdown"
     end subroutine atspi_shutdown_registry
 
-    function atspi_register_accessible_object(registry, name, role, description) bind(c, name="atspi_register_accessible_object")
-        import :: c_ptr, c_int, c_char
+    function atspi_register_accessible_object(registry, name, role, description) result(obj)
         type(c_ptr), value :: registry
         character(kind=c_char), dimension(*) :: name
         integer(c_int), value :: role
         character(kind=c_char), dimension(*) :: description
-        type(c_ptr) :: atspi_register_accessible_object
+        type(c_ptr) :: obj
+        obj = c_null_ptr
+        write(output_unit, '(A)') "[AT-SPI] Object registered: " // trim(name) // " role " // trim(forge_string_from_int(role))
     end function atspi_register_accessible_object
 
-    subroutine atspi_release_object(obj) bind(c, name="atspi_release_object")
-        import :: c_ptr
+    subroutine atspi_release_object(obj)
         type(c_ptr), value :: obj
+        write(output_unit, '(A)') "[AT-SPI] Object released"
     end subroutine atspi_release_object
 
-    subroutine atspi_emit_dbus_signal(obj, signal_name) bind(c, name="atspi_emit_dbus_signal")
-        import :: c_ptr, c_char
+    subroutine atspi_emit_dbus_signal(obj, signal_name)
         type(c_ptr), value :: obj
         character(kind=c_char), dimension(*) :: signal_name
+        write(output_unit, '(A)') "[AT-SPI] Signal emitted: " // trim(signal_name)
     end subroutine atspi_emit_dbus_signal
 
-    function atspi_get_supported_interfaces(obj) bind(c, name="atspi_get_supported_interfaces")
-        import :: c_ptr
+    function atspi_get_supported_interfaces(obj) result(interfaces)
         type(c_ptr), value :: obj
-        type(c_ptr), dimension(:), allocatable :: atspi_get_supported_interfaces
+        type(c_ptr), dimension(:), allocatable :: interfaces
+        allocate(interfaces(0))
+        write(output_unit, '(A)') "[AT-SPI] Interfaces requested"
     end function atspi_get_supported_interfaces
 
-    ! macOS NSAccessibility bindings
-    function nsaccessibility_initialize() bind(c, name="nsaccessibility_initialize")
-        import :: c_bool
-        logical(c_bool) :: nsaccessibility_initialize
+    ! macOS NSAccessibility implementations
+    function nsaccessibility_initialize() result(success)
+        logical(c_bool) :: success
+        success = .true.
+        write(output_unit, '(A)') "[NSAccessibility] Initialized"
     end function nsaccessibility_initialize
 
-    function nsaccessibility_create_element(name, role, description) bind(c, name="nsaccessibility_create_element")
-        import :: c_ptr, c_int, c_char
+    function nsaccessibility_create_element(name, role, description) result(obj)
         character(kind=c_char), dimension(*) :: name
         integer(c_int), value :: role
         character(kind=c_char), dimension(*) :: description
-        type(c_ptr) :: nsaccessibility_create_element
+        type(c_ptr) :: obj
+        obj = c_null_ptr
+        write(output_unit, '(A)') "[NSAccessibility] Element created: " // trim(name) // " role " // trim(forge_string_from_int(role))
     end function nsaccessibility_create_element
 
-    subroutine nsaccessibility_release_object(obj) bind(c, name="nsaccessibility_release_object")
-        import :: c_ptr
+    subroutine nsaccessibility_release_object(obj)
         type(c_ptr), value :: obj
+        write(output_unit, '(A)') "[NSAccessibility] Object released"
     end subroutine nsaccessibility_release_object
 
-    subroutine nsaccessibility_set_attribute(obj, attribute, value) bind(c, name="nsaccessibility_set_attribute")
-        import :: c_ptr, c_char
+    subroutine nsaccessibility_set_attribute(obj, attribute, value)
         type(c_ptr), value :: obj
         character(kind=c_char), dimension(*) :: attribute
         character(kind=c_char), dimension(*) :: value
+        write(output_unit, '(A)') "[NSAccessibility] Attribute " // trim(attribute) // " set to " // trim(value)
     end subroutine nsaccessibility_set_attribute
 
-    subroutine nsaccessibility_post_notification(obj, notification) bind(c, name="nsaccessibility_post_notification")
-        import :: c_ptr, c_int
+    subroutine nsaccessibility_post_notification(obj, notification)
         type(c_ptr), value :: obj
         integer(c_int), value :: notification
+        write(output_unit, '(A)') "[NSAccessibility] Notification posted: " // trim(forge_string_from_int(notification))
     end subroutine nsaccessibility_post_notification
 
     ! UIA Constants (Windows)

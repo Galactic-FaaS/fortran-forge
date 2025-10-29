@@ -10,9 +10,10 @@ module forge_json
     implicit none
     private
 
-    public :: QJsonValue, QJsonObject, QJsonArray
+    public :: QJsonValue, QJsonObject, QJsonArray, QJsonDocument
+    public :: QJsonParseError, QJsonSerializer
     public :: JSON_NULL, JSON_BOOL, JSON_NUMBER, JSON_STRING, JSON_ARRAY, JSON_OBJECT
-    public :: parse_json, json_to_string
+    public :: parse_json, json_to_string, parse_json_document
 
     !> JSON value types
     integer, parameter :: JSON_NULL = 0
@@ -85,6 +86,49 @@ module forge_json
         procedure :: begin => jsonarray_begin
         procedure :: end => jsonarray_end
     end type QJsonArray
+
+    !> @brief JSON parse error
+    type :: QJsonParseError
+        integer :: error = 0
+        character(len=:), allocatable :: error_string
+        integer :: offset = 0
+    contains
+        procedure :: is_null => jsonparseerror_is_null
+        procedure :: to_string => jsonparseerror_to_string
+    end type QJsonParseError
+
+    !> @brief JSON document
+    type :: QJsonDocument
+        private
+        type(QJsonValue) :: root_value
+        logical :: is_array = .false.
+        logical :: is_object = .false.
+        logical :: is_null = .true.
+    contains
+        procedure :: is_array => jsondocument_is_array
+        procedure :: is_object => jsondocument_is_object
+        procedure :: is_empty => jsondocument_is_empty
+        procedure :: is_null => jsondocument_is_null
+        procedure :: array => jsondocument_array
+        procedure :: object => jsondocument_object
+        procedure :: set_array => jsondocument_set_array
+        procedure :: set_object => jsondocument_set_object
+        procedure :: to_json => jsondocument_to_json
+        procedure :: from_json => jsondocument_from_json
+    end type QJsonDocument
+
+    !> @brief JSON serializer
+    type :: QJsonSerializer
+        private
+        logical :: compact = .false.
+        integer :: indent_size = 4
+        logical :: keep_null = .false.
+    contains
+        procedure :: serialize => jsonserializer_serialize
+        procedure :: set_compact_format => jsonserializer_set_compact_format
+        procedure :: set_indent_size => jsonserializer_set_indent_size
+        procedure :: set_keep_null => jsonserializer_set_keep_null
+    end type QJsonSerializer
 
 contains
 
@@ -460,22 +504,199 @@ contains
         idx = this%count - 1
     end function jsonarray_end
 
+    ! ========== QJsonParseError Implementation ==========
+
+    function jsonparseerror_is_null(this) result(is_null)
+        class(QJsonParseError), intent(in) :: this
+        logical :: is_null
+        is_null = (this%error == 0)
+    end function jsonparseerror_is_null
+
+    function jsonparseerror_to_string(this) result(str)
+        class(QJsonParseError), intent(in) :: this
+        character(len=:), allocatable :: str
+        if (allocated(this%error_string)) then
+            str = this%error_string
+        else
+            str = ""
+        end if
+    end function jsonparseerror_to_string
+
+    ! ========== QJsonDocument Implementation ==========
+
+    function jsondocument_is_array(this) result(is_arr)
+        class(QJsonDocument), intent(in) :: this
+        logical :: is_arr
+        is_arr = this%is_array
+    end function jsondocument_is_array
+
+    function jsondocument_is_object(this) result(is_obj)
+        class(QJsonDocument), intent(in) :: this
+        logical :: is_obj
+        is_obj = this%is_object
+    end function jsondocument_is_object
+
+    function jsondocument_is_empty(this) result(is_empty)
+        class(QJsonDocument), intent(in) :: this
+        logical :: is_empty
+        is_empty = this%is_null
+    end function jsondocument_is_empty
+
+    function jsondocument_is_null(this) result(is_null)
+        class(QJsonDocument), intent(in) :: this
+        logical :: is_null
+        is_null = this%is_null
+    end function jsondocument_is_null
+
+    function jsondocument_array(this) result(arr)
+        class(QJsonDocument), intent(in) :: this
+        type(QJsonArray) :: arr
+        if (this%is_array) then
+            arr = this%root_value%to_array()
+        end if
+    end function jsondocument_array
+
+    function jsondocument_object(this) result(obj)
+        class(QJsonDocument), intent(in) :: this
+        type(QJsonObject) :: obj
+        if (this%is_object) then
+            obj = this%root_value%to_object()
+        end if
+    end function jsondocument_object
+
+    subroutine jsondocument_set_array(this, array)
+        class(QJsonDocument), intent(inout) :: this
+        type(QJsonArray), intent(in) :: array
+        call this%root_value%set_array(array)
+        this%is_array = .true.
+        this%is_object = .false.
+        this%is_null = .false.
+    end subroutine jsondocument_set_array
+
+    subroutine jsondocument_set_object(this, object)
+        class(QJsonDocument), intent(inout) :: this
+        type(QJsonObject), intent(in) :: object
+        call this%root_value%set_object(object)
+        this%is_array = .false.
+        this%is_object = .true.
+        this%is_null = .false.
+    end subroutine jsondocument_set_object
+
+    function jsondocument_to_json(this, format) result(json_string)
+        class(QJsonDocument), intent(in) :: this
+        integer, intent(in), optional :: format
+        character(len=:), allocatable :: json_string
+
+        logical :: pretty
+        pretty = .false.
+        if (present(format)) then
+            pretty = (format == 1)  ! Compact=0, Indented=1
+        end if
+
+        json_string = json_to_string(this%root_value, pretty)
+    end function jsondocument_to_json
+
+    function jsondocument_from_json(this, json_string, error) result(success)
+        class(QJsonDocument), intent(inout) :: this
+        character(len=*), intent(in) :: json_string
+        type(QJsonParseError), intent(out), optional :: error
+        logical :: success
+
+        type(QJsonParseError) :: parse_error
+
+        this%root_value = parse_json_document(json_string, parse_error)
+
+        if (present(error)) then
+            error = parse_error
+        end if
+
+        success = parse_error%is_null()
+
+        if (success) then
+            if (this%root_value%is_array()) then
+                this%is_array = .true.
+                this%is_object = .false.
+            else if (this%root_value%is_object()) then
+                this%is_array = .false.
+                this%is_object = .true.
+            else
+                this%is_array = .false.
+                this%is_object = .false.
+            end if
+            this%is_null = .false.
+        else
+            this%is_null = .true.
+            this%is_array = .false.
+            this%is_object = .false.
+        end if
+    end function jsondocument_from_json
+
+    ! ========== QJsonSerializer Implementation ==========
+
+    function jsonserializer_serialize(this, value) result(json_string)
+        class(QJsonSerializer), intent(in) :: this
+        type(QJsonValue), intent(in) :: value
+        character(len=:), allocatable :: json_string
+
+        json_string = json_to_string(value, .not. this%compact)
+    end function jsonserializer_serialize
+
+    subroutine jsonserializer_set_compact_format(this, compact)
+        class(QJsonSerializer), intent(inout) :: this
+        logical, intent(in) :: compact
+        this%compact = compact
+    end subroutine jsonserializer_set_compact_format
+
+    subroutine jsonserializer_set_indent_size(this, size)
+        class(QJsonSerializer), intent(inout) :: this
+        integer, intent(in) :: size
+        this%indent_size = size
+    end subroutine jsonserializer_set_indent_size
+
+    subroutine jsonserializer_set_keep_null(this, keep)
+        class(QJsonSerializer), intent(inout) :: this
+        logical, intent(in) :: keep
+        this%keep_null = keep
+    end subroutine jsonserializer_set_keep_null
+
     ! ========== Parsing and Generation ==========
 
     function parse_json(json_string) result(value)
         use forge_json_parser, only: json_parse_complete
         character(len=*), intent(in) :: json_string
         type(QJsonValue) :: value
-        
+
         value = json_parse_complete(json_string)
     end function parse_json
+
+    function parse_json_document(json_string, error) result(value)
+        use forge_json_parser, only: json_parse_complete
+        character(len=*), intent(in) :: json_string
+        type(QJsonParseError), intent(out), optional :: error
+        type(QJsonValue) :: value
+        character(len=:), allocatable :: error_msg
+
+        value = json_parse_complete(json_string, error_msg)
+
+        if (present(error)) then
+            if (allocated(error_msg) .and. len(error_msg) > 0) then
+                error%error = 1
+                error%error_string = error_msg
+                error%offset = 0  ! Could be enhanced to get actual offset
+            else
+                error%error = 0
+                error%error_string = ""
+                error%offset = 0
+            end if
+        end if
+    end function parse_json_document
 
     function json_to_string(value, pretty) result(json_string)
         use forge_json_parser, only: json_stringify_complete
         type(QJsonValue), intent(in) :: value
         logical, intent(in), optional :: pretty
         character(len=:), allocatable :: json_string
-        
+
         json_string = json_stringify_complete(value, pretty)
     end function json_to_string
 

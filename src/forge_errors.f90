@@ -12,6 +12,7 @@ module forge_errors
     public :: forge_error, forge_status
     public :: FORGE_SUCCESS, FORGE_ERROR_GENERIC, FORGE_ERROR_NULL_PTR
     public :: FORGE_ERROR_INVALID_ARG, FORGE_ERROR_BACKEND, FORGE_ERROR_NOT_IMPLEMENTED
+    public :: FORGE_ERROR_XML_PARSE, FORGE_ERROR_JSON_PARSE
     public :: forge_check_status, forge_error_message
 
     !> Error codes
@@ -21,6 +22,8 @@ module forge_errors
     integer, parameter :: FORGE_ERROR_INVALID_ARG = 3
     integer, parameter :: FORGE_ERROR_BACKEND = 4
     integer, parameter :: FORGE_ERROR_NOT_IMPLEMENTED = 5
+    integer, parameter :: FORGE_ERROR_XML_PARSE = 6
+    integer, parameter :: FORGE_ERROR_JSON_PARSE = 7
 
     !> @brief Error status type
     type :: forge_status
@@ -138,10 +141,13 @@ contains
             message = "Backend error"
         case (FORGE_ERROR_NOT_IMPLEMENTED)
             message = "Feature not implemented"
+        case (FORGE_ERROR_XML_PARSE)
+            message = "XML parsing error"
+        case (FORGE_ERROR_JSON_PARSE)
+            message = "JSON parsing error"
         case default
             message = "Unknown error"
         end select
     end function forge_error_message
 
 end module forge_errors
-

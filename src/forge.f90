@@ -30,6 +30,7 @@ module forge
     use forge_rendering
     use forge_widgets
     use forge_layout
+    use forge_multimedia
     use forge_custom_backend
     
     implicit none
@@ -68,6 +69,10 @@ module forge
     public :: forge_layout_base, forge_grid_layout, forge_box_layout, forge_stack_layout
     public :: LAYOUT_HORIZONTAL, LAYOUT_VERTICAL
     public :: forge_qpen_t, forge_qbrush_t, forge_qpixmap_t, forge_qpainter_t
+    ! From forge_multimedia
+    public :: QAudioFormat, QAudioDeviceInfo, QAudioInput, QAudioOutput
+    public :: QAudioRecorder, QAudioDecoder, QVideoDecoder, QCamera
+    public :: QVideoWidget, QMediaPlayer, QMediaPlaylist
     public :: forge_qfont_t, forge_qpath_t
 
     !> ForGE version

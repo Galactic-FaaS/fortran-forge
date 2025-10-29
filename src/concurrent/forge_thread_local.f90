@@ -31,7 +31,7 @@ contains
     !> @brief Initialize thread-local storage
     subroutine tls_init(this)
 #ifdef _WIN32
-        use forge_thread_windows, only: win_thread_key_create
+        use forge_thread_windows, only: win_tls_alloc
 #endif
 #ifndef _WIN32
         use forge_thread_posix, only: posix_thread_key_create
@@ -41,9 +41,8 @@ contains
         if (this%initialized) return
 
 #ifdef _WIN32
-        ! Windows TLS implementation would go here
-        ! For now, placeholder
-        this%key_handle = c_null_ptr
+        ! Use real Windows TLS allocation
+        this%key_handle = transfer(win_tls_alloc(), c_ptr)
 #endif
 #ifndef _WIN32
         this%key_handle = posix_thread_key_create(c_null_funptr)
@@ -55,7 +54,7 @@ contains
     !> @brief Set thread-local value
     subroutine tls_set_value(this, value)
 #ifdef _WIN32
-        use forge_thread_windows, only: win_thread_setspecific
+        use forge_thread_windows, only: win_tls_set_value
 #endif
 #ifndef _WIN32
         use forge_thread_posix, only: posix_thread_setspecific
@@ -66,7 +65,8 @@ contains
         if (.not. this%initialized) call this%init()
 
 #ifdef _WIN32
-        ! Windows implementation
+        ! Use real Windows TLS set value
+        call win_tls_set_value(transfer(this%key_handle, 0), value)
 #endif
 #ifndef _WIN32
         call posix_thread_setspecific(transfer(this%key_handle, 0), value)
@@ -76,7 +76,7 @@ contains
     !> @brief Get thread-local value
     function tls_get_value(this) result(value)
 #ifdef _WIN32
-        use forge_thread_windows, only: win_thread_getspecific
+        use forge_thread_windows, only: win_tls_get_value
 #endif
 #ifndef _WIN32
         use forge_thread_posix, only: posix_thread_getspecific
@@ -90,8 +90,8 @@ contains
         end if
 
 #ifdef _WIN32
-        ! Windows implementation
-        value = c_null_ptr
+        ! Use real Windows TLS get value
+        value = win_tls_get_value(transfer(this%key_handle, 0))
 #endif
 #ifndef _WIN32
         value = posix_thread_getspecific(transfer(this%key_handle, 0))
@@ -118,7 +118,7 @@ contains
     !> @brief Destroy thread-local storage
     subroutine tls_destroy(this)
 #ifdef _WIN32
-        use forge_thread_windows, only: win_thread_key_delete
+        use forge_thread_windows, only: win_tls_free
 #endif
 #ifndef _WIN32
         use forge_thread_posix, only: posix_thread_key_delete
@@ -128,7 +128,8 @@ contains
         if (.not. this%initialized) return
 
 #ifdef _WIN32
-        ! Windows implementation
+        ! Use real Windows TLS free
+        call win_tls_free(transfer(this%key_handle, 0))
 #endif
 #ifndef _WIN32
         call posix_thread_key_delete(transfer(this%key_handle, 0))

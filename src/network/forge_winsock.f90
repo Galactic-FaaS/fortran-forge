@@ -359,24 +359,47 @@ contains
         character(len=*), intent(in) :: host
         integer, intent(in) :: port
         logical :: success
-        type(sockaddr_in), target :: server_addr
-        integer(c_int) :: result, addr_int
-        character(len=:), allocatable, target :: host_c
+        type(addrinfo), target :: hints
+        type(c_ptr) :: result_addrinfo, addr_ptr
+        integer(c_int) :: result, ret
+        character(len=:), allocatable, target :: host_c, port_c
+        type(c_ptr) :: hints_ptr, result_ptr
 
-        ! Setup address structure
-        server_addr%sin_family = AF_INET
-        server_addr%sin_port = htons(int(port, c_short))
+        success = .false.
 
-        ! Convert hostname to IP
+        ! Setup hints for connection
+        hints%ai_family = AF_UNSPEC  ! Allow IPv4 or IPv6
+        hints%ai_socktype = SOCK_STREAM
+        hints%ai_protocol = IPPROTO_TCP
+        hints%ai_flags = 0
+
         host_c = trim(host) // c_null_char
-        addr_int = inet_addr(c_loc(host_c))
-        server_addr%sin_addr = addr_int
-        server_addr%sin_zero = c_null_char
-        
-        ! Connect
-        result = connect(sock, c_loc(server_addr), int(sizeof(server_addr), c_int))
-        success = (result == 0)
-        
+        port_c = int_to_string(port) // c_null_char
+
+        hints_ptr = c_loc(hints)
+        result_ptr = c_null_ptr
+        ret = getaddrinfo(c_loc(host_c), c_loc(port_c), hints_ptr, result_ptr)
+
+        if (ret /= 0) then
+            write(*, '(A,I0)') "getaddrinfo failed. Error: ", ret
+            return
+        end if
+
+        ! Try to connect using first available address
+        addr_ptr = result_ptr
+        do while (c_associated(addr_ptr))
+            result = connect(sock, addr_ptr, 16)  ! Assume IPv4 sockaddr_in size for now
+            if (result == 0) then
+                success = .true.
+                exit
+            end if
+            ! Get next address
+            call c_f_pointer(addr_ptr, hints)
+            addr_ptr = hints%ai_next
+        end do
+
+        call freeaddrinfo(result_ptr)
+
         if (.not. success) then
             write(*, '(A,I0)') "Connect failed. Error: ", WSAGetLastError()
         end if
@@ -388,16 +411,31 @@ contains
         integer, intent(in) :: port
         logical :: success
         type(sockaddr_in), target :: server_addr
-        integer(c_int) :: result
-        
-        server_addr%sin_family = AF_INET
-        server_addr%sin_port = htons(int(port, c_short))
-        server_addr%sin_addr = 0  ! INADDR_ANY
-        server_addr%sin_zero = c_null_char
-        
-        result = bind(sock, c_loc(server_addr), int(sizeof(server_addr), c_int))
+        type(sockaddr_in6), target :: server_addr6
+        integer(c_int) :: result, af
+        logical :: is_ipv6
+
+        ! Determine if socket is IPv6
+        ! For now, assume IPv4, but in full implementation would check socket family
+        af = AF_INET
+        is_ipv6 = .false.
+
+        if (is_ipv6) then
+            server_addr6%sin6_family = AF_INET6
+            server_addr6%sin6_port = htons(int(port, c_short))
+            server_addr6%sin6_addr = in6_addr((/0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0/))  ! in6addr_any
+            server_addr6%sin6_scope_id = 0
+            result = bind(sock, c_loc(server_addr6), int(sizeof(server_addr6), c_int))
+        else
+            server_addr%sin_family = AF_INET
+            server_addr%sin_port = htons(int(port, c_short))
+            server_addr%sin_addr = 0  ! INADDR_ANY
+            server_addr%sin_zero = c_null_char
+            result = bind(sock, c_loc(server_addr), int(sizeof(server_addr), c_int))
+        end if
+
         success = (result == 0)
-        
+
         if (.not. success) then
             write(*, '(A,I0)') "Bind failed. Error: ", WSAGetLastError()
         end if
@@ -478,26 +516,45 @@ contains
         character(len=*), intent(in) :: dest_ip
         integer, intent(in) :: dest_port
         integer :: bytes_sent
-        type(sockaddr_in), target :: dest_addr
-        integer(c_int) :: result, addr_int
-        character(len=:), allocatable, target :: ip_c
+        type(addrinfo), target :: hints
+        type(c_ptr) :: result_addrinfo, addr_ptr
+        integer(c_int) :: result, ret
+        character(len=:), allocatable, target :: ip_c, port_c
+        type(c_ptr) :: hints_ptr, result_ptr
 
-        dest_addr%sin_family = AF_INET
-        dest_addr%sin_port = htons(int(dest_port, c_short))
+        bytes_sent = -1
+
+        ! Setup hints for UDP send
+        hints%ai_family = AF_UNSPEC  ! Allow IPv4 or IPv6
+        hints%ai_socktype = SOCK_DGRAM
+        hints%ai_protocol = IPPROTO_UDP
+        hints%ai_flags = 0
 
         ip_c = trim(dest_ip) // c_null_char
-        addr_int = inet_addr(c_loc(ip_c))
-        dest_addr%sin_addr = addr_int
-        dest_addr%sin_zero = c_null_char
-        
-        result = sendto(sock, c_loc(data), length, 0, c_loc(dest_addr), &
-                       int(sizeof(dest_addr), c_int))
-        bytes_sent = result
-        
-        if (result < 0) then
-            write(*, '(A,I0)') "Sendto failed. Error: ", WSAGetLastError()
-            bytes_sent = -1
+        port_c = int_to_string(dest_port) // c_null_char
+
+        hints_ptr = c_loc(hints)
+        result_ptr = c_null_ptr
+        ret = getaddrinfo(c_loc(ip_c), c_loc(port_c), hints_ptr, result_ptr)
+
+        if (ret /= 0) then
+            write(*, '(A,I0)') "getaddrinfo failed. Error: ", ret
+            return
         end if
+
+        ! Send using first available address
+        addr_ptr = result_ptr
+        if (c_associated(addr_ptr)) then
+            result = sendto(sock, c_loc(data), length, 0, addr_ptr, 16)  ! Assume sockaddr_in size
+            bytes_sent = result
+
+            if (result < 0) then
+                write(*, '(A,I0)') "Sendto failed. Error: ", WSAGetLastError()
+                bytes_sent = -1
+            end if
+        end if
+
+        call freeaddrinfo(result_ptr)
     end function socket_sendto
 
     !> @brief Receive UDP datagram
@@ -511,23 +568,31 @@ contains
         type(sockaddr_in), target :: from_addr
         integer(c_int), target :: fromlen
         integer(c_int) :: result
-        
+        character(len=256), target :: ip_buffer
+
         fromlen = sizeof(from_addr)
-        
+
         result = recvfrom(sock, c_loc(buffer), buffer_size, 0, &
                          c_loc(from_addr), c_loc(fromlen))
         bytes_received = result
-        
+
         if (result < 0) then
             write(*, '(A,I0)') "Recvfrom failed. Error: ", WSAGetLastError()
             bytes_received = -1
-        else
+        else if (result >= 0) then
             if (present(source_port)) then
                 source_port = ntohs(from_addr%sin_port)
             end if
-            ! Convert from_addr%sin_addr to IP string for source_ip
-            ! Note: This would require inet_ntoa or similar function
-            ! For now, source_ip remains empty
+            if (present(source_ip)) then
+                ! Convert IP address to string
+                result = getnameinfo(c_loc(from_addr), fromlen, &
+                                   c_loc(ip_buffer), len(ip_buffer), c_null_ptr, 0, 0)
+                if (result == 0) then
+                    source_ip = trim(ip_buffer)
+                else
+                    source_ip = ""
+                end if
+            end if
         end if
     end function socket_recvfrom
 
@@ -604,10 +669,11 @@ contains
         hints%ai_flags = 0
 
         host_c = trim(hostname) // c_null_char
+        port_c = int_to_string(port) // c_null_char
 
         hints_ptr = c_loc(hints)
         result_ptr = c_null_ptr
-        ret = getaddrinfo(c_loc(host_c), c_null_ptr, hints_ptr, result_ptr)
+        ret = getaddrinfo(c_loc(host_c), c_loc(port_c), hints_ptr, result_ptr)
 
         if (ret /= 0) then
             return
@@ -641,7 +707,7 @@ contains
         type(sockaddr_in6), pointer :: sockaddr_ipv6
         character(len=256), target :: ip_buffer
         integer(c_int) :: ret
-        character(len=:), allocatable, target :: host_c
+        character(len=:), allocatable, target :: host_c, port_c
         type(c_ptr) :: hints_ptr, result_ptr
 
         success = .false.
@@ -654,12 +720,14 @@ contains
         hints%ai_flags = 0
 
         host_c = trim(hostname) // c_null_char
+        port_c = int_to_string(port) // c_null_char
 
         hints_ptr = c_loc(hints)
         result_ptr = c_null_ptr
-        ret = getaddrinfo(c_loc(host_c), c_null_ptr, hints_ptr, result_ptr)
+        ret = getaddrinfo(c_loc(host_c), c_loc(port_c), hints_ptr, result_ptr)
 
         if (ret /= 0) then
+            write(*, '(A,I0)') "getaddrinfo failed with error: ", ret
             return
         end if
 
@@ -673,6 +741,8 @@ contains
                 if (ret == 0) then
                     ip_addr = trim(ip_buffer)
                     success = .true.
+                else
+                    write(*, '(A,I0)') "getnameinfo failed with error: ", ret
                 end if
             end if
         end if

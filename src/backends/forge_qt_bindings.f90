@@ -1,3 +1,4 @@
+
 !> @brief C bindings for Qt6 library
 !> @details Provides Fortran interfaces to Qt6 C API
 !> @author ForGE Contributors
@@ -67,6 +68,68 @@ module forge_qt_bindings
     public :: qmediarecorder_stop, qmediarecorder_state, qmediarecorder_error
     public :: qmediarecorder_set_audio_input, qmediarecorder_set_video_input
     public :: qaudiorecorder_new, qvideorecorder_new
+    ! SQL Database bindings
+    public :: qsqldatabase, qsqlquery, qsqlrecord, qsqlfield, qsqltablemodel
+    public :: qsqlrelationaltablemodel, qsqlquerymodel, qsqlerror, qsqldriver
+    public :: qsqldatabase_new, qsqldatabase_add_database, qsqldatabase_database
+    public :: qsqldatabase_remove_database, qsqldatabase_contains, qsqldatabase_connection_names
+    public :: qsqldatabase_drivers, qsqldatabase_is_driver_available, qsqldatabase_register_sql_driver
+    public :: qsqldatabase_clone_database, qsqldatabase_default_connection, qsqldatabase_set_default_connection
+    public :: qsqldatabase_open, qsqldatabase_close, qsqldatabase_is_open, qsqldatabase_is_open_error
+    public :: qsqldatabase_last_error, qsqldatabase_set_database_name, qsqldatabase_database_name
+    public :: qsqldatabase_set_user_name, qsqldatabase_user_name, qsqldatabase_set_password
+    public :: qsqldatabase_password, qsqldatabase_set_host_name, qsqldatabase_host_name
+    public :: qsqldatabase_set_port, qsqldatabase_port, qsqldatabase_set_connect_options
+    public :: qsqldatabase_connect_options, qsqldatabase_driver, qsqldatabase_driver_name
+    public :: qsqldatabase_set_numerical_precision_policy, qsqldatabase_numerical_precision_policy
+    public :: qsqldatabase_transaction, qsqldatabase_commit, qsqldatabase_rollback
+    public :: qsqldatabase_set_transaction_mode, qsqldatabase_transaction_mode
+    public :: qsqlquery_new, qsqlquery_exec, qsqlquery_exec_batch, qsqlquery_prepare
+    public :: qsqlquery_bind_value, qsqlquery_add_bind_value, qsqlquery_bound_value
+    public :: qsqlquery_bound_values, qsqlquery_next, qsqlquery_previous, qsqlquery_first
+    public :: qsqlquery_last, qsqlquery_seek, qsqlquery_at, qsqlquery_size, qsqlquery_is_active
+    public :: qsqlquery_is_forward_only, qsqlquery_set_forward_only, qsqlquery_is_valid
+    public :: qsqlquery_is_null, qsqlquery_value, qsqlquery_record, qsqlquery_driver
+    public :: qsqlquery_numerical_precision_policy, qsqlquery_set_numerical_precision_policy
+    public :: qsqlquery_last_query, qsqlquery_last_error, qsqlquery_executed_query
+    public :: qsqlquery_clear, qsqlquery_finish, qsqlquery_next_result
+    public :: qsqlrecord_new, qsqlrecord_append, qsqlrecord_replace, qsqlrecord_remove
+    public :: qsqlrecord_insert, qsqlrecord_clear, qsqlrecord_clear_values, qsqlrecord_count
+    public :: qsqlrecord_contains, qsqlrecord_field, qsqlrecord_field_name, qsqlrecord_index_of
+    public :: qsqlrecord_is_empty, qsqlrecord_is_generated, qsqlrecord_is_null, qsqlrecord_name_to_index
+    public :: qsqlrecord_set_generated, qsqlrecord_set_null, qsqlrecord_set_value, qsqlrecord_value
+    public :: qsqlfield_new, qsqlfield_set_value, qsqlfield_value, qsqlfield_set_name
+    public :: qsqlfield_name, qsqlfield_is_null, qsqlfield_set_null, qsqlfield_is_valid
+    public :: qsqlfield_is_auto_value, qsqlfield_set_auto_value, qsqlfield_is_generated
+    public :: qsqlfield_set_generated, qsqlfield_is_read_only, qsqlfield_set_read_only
+    public :: qsqlfield_type, qsqlfield_set_type, qsqlfield_required_status, qsqlfield_set_required_status
+    public :: qsqlfield_length, qsqlfield_set_length, qsqlfield_precision, qsqlfield_set_precision
+    public :: qsqlfield_default_value, qsqlfield_set_default_value, qsqlfield_table_name, qsqlfield_set_table_name
+    public :: qsqltablemodel_new, qsqltablemodel_set_table, qsqltablemodel_table_name
+    public :: qsqltablemodel_set_edit_strategy, qsqltablemodel_edit_strategy, qsqltablemodel_select
+    public :: qsqltablemodel_set_filter, qsqltablemodel_filter, qsqltablemodel_set_sort
+    public :: qsqltablemodel_sort, qsqltablemodel_select_row, qsqltablemodel_is_dirty
+    public :: qsqltablemodel_submit, qsqltablemodel_revert, qsqltablemodel_submit_all
+    public :: qsqltablemodel_revert_all, qsqltablemodel_prime_insert, qsqltablemodel_insert_record
+    public :: qsqltablemodel_set_record, qsqltablemodel_remove_columns, qsqltablemodel_remove_rows
+    public :: qsqltablemodel_database, qsqltablemodel_last_error, qsqltablemodel_clear
+    public :: qsqlrelationaltablemodel_new, qsqlrelationaltablemodel_set_relation
+    public :: qsqlrelationaltablemodel_relation, qsqlrelationaltablemodel_set_join_mode
+    public :: qsqlrelationaltablemodel_join_mode, qsqlrelationaltablemodel_select
+    public :: qsqlrelationaltablemodel_revert_row, qsqlrelationaltablemodel_set_filter
+    public :: qsqlrelationaltablemodel_filter, qsqlrelationaltablemodel_order_by_clause
+    public :: qsqlrelationaltablemodel_set_order_by_clause
+    public :: qsqlquerymodel_new, qsqlquerymodel_set_query, qsqlquerymodel_query
+    public :: qsqlquerymodel_set_last_error, qsqlquerymodel_last_error, qsqlquerymodel_clear
+    public :: qsqlquerymodel_query_change, qsqlquerymodel_index_in_query
+    public :: qsqlerror_new, qsqlerror_type, qsqlerror_number, qsqlerror_database_text
+    public :: qsqlerror_driver_text, qsqlerror_text, qsqlerror_is_valid, qsqlerror_swap
+    public :: qsqldriver_new, qsqldriver_is_open, qsqldriver_is_open_error, qsqldriver_last_error
+    public :: qsqldriver_driver_name, qsqldriver_has_feature, qsqldriver_open, qsqldriver_close
+    public :: qsqldriver_create_result, qsqldriver_begin_transaction, qsqldriver_commit_transaction
+    public :: qsqldriver_rollback_transaction, qsqldriver_sql_statement, qsqldriver_escape_identifier
+    public :: qsqldriver_format_value, qsqldriver_record, qsqldriver_primary_index
+    public :: qsqldriver_is_identifier_escaped, qsqldriver_strip_delimiters, qsqldriver_conformance_level
 
     !> Opaque Qt handles
     type :: qapplication
@@ -202,6 +265,43 @@ module forge_qt_bindings
     type :: qvideorecorder
         type(c_ptr) :: ptr = c_null_ptr
     end type qvideorecorder
+
+    !> SQL Database Types
+    type :: qsqldatabase
+        type(c_ptr) :: ptr = c_null_ptr
+    end type qsqldatabase
+
+    type :: qsqlquery
+        type(c_ptr) :: ptr = c_null_ptr
+    end type qsqlquery
+
+    type :: qsqlrecord
+        type(c_ptr) :: ptr = c_null_ptr
+    end type qsqlrecord
+
+    type :: qsqlfield
+        type(c_ptr) :: ptr = c_null_ptr
+    end type qsqlfield
+
+    type :: qsqltablemodel
+        type(c_ptr) :: ptr = c_null_ptr
+    end type qsqltablemodel
+
+    type :: qsqlrelationaltablemodel
+        type(c_ptr) :: ptr = c_null_ptr
+    end type qsqlrelationaltablemodel
+
+    type :: qsqlquerymodel
+        type(c_ptr) :: ptr = c_null_ptr
+    end type qsqlquerymodel
+
+    type :: qsqlerror
+        type(c_ptr) :: ptr = c_null_ptr
+    end type qsqlerror
+
+    type :: qsqldriver
+        type(c_ptr) :: ptr = c_null_ptr
+    end type qsqldriver
 
     !> Qt6 C API bindings (simplified wrapper functions)
     interface
@@ -839,6 +939,7 @@ module forge_qt_bindings
             real(c_double) :: qvideoformat_frame_rate
         end function qvideoformat_frame_rate
 
+        subroutine qvideoformat_set_frame_rate(format, frame_rate) bind(c,
         subroutine qvideoformat_set_frame_rate(format, frame_rate) bind(c, name="qvideoformat_set_frame_rate")
             import :: c_ptr, c_double
             type(c_ptr), value :: format
@@ -997,6 +1098,425 @@ module forge_qt_bindings
         end function qmediaplayer_state
 
         function qmediaplayer_error(player) bind(c, name="qmediaplayer_error")
+        function qsqltablemodel_select(model) bind(c, name="qsqltablemodel_select")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: model
+            logical(c_bool) :: qsqltablemodel_select
+        end function qsqltablemodel_select
+
+        subroutine qsqltablemodel_set_filter(model, filter) bind(c, name="qsqltablemodel_set_filter")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: model
+            character(kind=c_char), dimension(*) :: filter
+        end subroutine qsqltablemodel_set_filter
+
+        function qsqltablemodel_filter(model) bind(c, name="qsqltablemodel_filter")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: model
+            character(kind=c_char), dimension(*) :: qsqltablemodel_filter
+        end function qsqltablemodel_filter
+
+        subroutine qsqltablemodel_set_sort(model, column, order) bind(c, name="qsqltablemodel_set_sort")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: model
+            integer(c_int), value :: column, order
+        end subroutine qsqltablemodel_set_sort
+
+        function qsqltablemodel_sort(model) bind(c, name="qsqltablemodel_sort")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: model
+            integer(c_int), dimension(2) :: qsqltablemodel_sort
+        end function qsqltablemodel_sort
+
+        function qsqltablemodel_select_row(model, row) bind(c, name="qsqltablemodel_select_row")
+            import :: c_ptr, c_int, c_bool
+            type(c_ptr), value :: model
+            integer(c_int), value :: row
+            logical(c_bool) :: qsqltablemodel_select_row
+        end function qsqltablemodel_select_row
+
+        function qsqltablemodel_is_dirty(model, index) bind(c, name="qsqltablemodel_is_dirty")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: model, index
+            logical(c_bool) :: qsqltablemodel_is_dirty
+        end function qsqltablemodel_is_dirty
+
+        function qsqltablemodel_submit(model) bind(c, name="qsqltablemodel_submit")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: model
+            logical(c_bool) :: qsqltablemodel_submit
+        end function qsqltablemodel_submit
+
+        function qsqltablemodel_revert(model) bind(c, name="qsqltablemodel_revert")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: model
+            logical(c_bool) :: qsqltablemodel_revert
+        end function qsqltablemodel_revert
+
+        function qsqltablemodel_submit_all(model) bind(c, name="qsqltablemodel_submit_all")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: model
+            logical(c_bool) :: qsqltablemodel_submit_all
+        end function qsqltablemodel_submit_all
+
+        function qsqltablemodel_revert_all(model) bind(c, name="qsqltablemodel_revert_all")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: model
+            logical(c_bool) :: qsqltablemodel_revert_all
+        end function qsqltablemodel_revert_all
+
+        function qsqltablemodel_prime_insert(model, row, record) bind(c, name="qsqltablemodel_prime_insert")
+            import :: c_ptr
+            type(c_ptr), value :: model, record
+            integer(c_int), value :: row
+        end function qsqltablemodel_prime_insert
+
+        function qsqltablemodel_insert_record(model, row, record) bind(c, name="qsqltablemodel_insert_record")
+            import :: c_ptr, c_int, c_bool
+            type(c_ptr), value :: model, record
+            integer(c_int), value :: row
+            logical(c_bool) :: qsqltablemodel_insert_record
+        end function qsqltablemodel_insert_record
+
+        subroutine qsqltablemodel_set_record(model, row, record) bind(c, name="qsqltablemodel_set_record")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: model, record
+            integer(c_int), value :: row
+        end subroutine qsqltablemodel_set_record
+
+        function qsqltablemodel_remove_columns(model, column, count, parent) bind(c, name="qsqltablemodel_remove_columns")
+            import :: c_ptr, c_int, c_bool
+            type(c_ptr), value :: model, parent
+            integer(c_int), value :: column, count
+            logical(c_bool) :: qsqltablemodel_remove_columns
+        end function qsqltablemodel_remove_columns
+
+        function qsqltablemodel_remove_rows(model, row, count, parent) bind(c, name="qsqltablemodel_remove_rows")
+            import :: c_ptr, c_int, c_bool
+            type(c_ptr), value :: model, parent
+            integer(c_int), value :: row, count
+            logical(c_bool) :: qsqltablemodel_remove_rows
+        end function qsqltablemodel_remove_rows
+
+        function qsqltablemodel_database(model) bind(c, name="qsqltablemodel_database")
+            import :: c_ptr
+            type(c_ptr), value :: model
+            type(c_ptr) :: qsqltablemodel_database
+        end function qsqltablemodel_database
+
+        function qsqltablemodel_last_error(model) bind(c, name="qsqltablemodel_last_error")
+            import :: c_ptr
+            type(c_ptr), value :: model
+            type(c_ptr) :: qsqltablemodel_last_error
+        end function qsqltablemodel_last_error
+
+        subroutine qsqltablemodel_clear(model) bind(c, name="qsqltablemodel_clear")
+            import :: c_ptr
+            type(c_ptr), value :: model
+        end subroutine qsqltablemodel_clear
+
+        !> QSqlRelationalTableModel
+        function qsqlrelationaltablemodel_new(parent, db) bind(c, name="qsqlrelationaltablemodel_new")
+            import :: c_ptr
+            type(c_ptr), value :: parent, db
+            type(c_ptr) :: qsqlrelationaltablemodel_new
+        end function qsqlrelationaltablemodel_new
+
+        subroutine qsqlrelationaltablemodel_set_relation(model, column, relation) bind(c, name="qsqlrelationaltablemodel_set_relation")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: model, relation
+            integer(c_int), value :: column
+        end subroutine qsqlrelationaltablemodel_set_relation
+
+        function qsqlrelationaltablemodel_relation(model, column) bind(c, name="qsqlrelationaltablemodel_relation")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: model
+            integer(c_int), value :: column
+            type(c_ptr) :: qsqlrelationaltablemodel_relation
+        end function qsqlrelationaltablemodel_relation
+
+        subroutine qsqlrelationaltablemodel_set_join_mode(model, join_mode) bind(c, name="qsqlrelationaltablemodel_set_join_mode")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: model
+            integer(c_int), value :: join_mode
+        end subroutine qsqlrelationaltablemodel_set_join_mode
+
+        function qsqlrelationaltablemodel_join_mode(model) bind(c, name="qsqlrelationaltablemodel_join_mode")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: model
+            integer(c_int) :: qsqlrelationaltablemodel_join_mode
+        end function qsqlrelationaltablemodel_join_mode
+
+        function qsqlrelationaltablemodel_select(model) bind(c, name="qsqlrelationaltablemodel_select")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: model
+            logical(c_bool) :: qsqlrelationaltablemodel_select
+        end function qsqlrelationaltablemodel_select
+
+        function qsqlrelationaltablemodel_revert_row(model, row) bind(c, name="qsqlrelationaltablemodel_revert_row")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: model
+            integer(c_int), value :: row
+        end function qsqlrelationaltablemodel_revert_row
+
+        subroutine qsqlrelationaltablemodel_set_filter(model, filter) bind(c, name="qsqlrelationaltablemodel_set_filter")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: model
+            character(kind=c_char), dimension(*) :: filter
+        end subroutine qsqlrelationaltablemodel_set_filter
+
+        function qsqlrelationaltablemodel_filter(model) bind(c, name="qsqlrelationaltablemodel_filter")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: model
+            character(kind=c_char), dimension(*) :: qsqlrelationaltablemodel_filter
+        end function qsqlrelationaltablemodel_filter
+
+        function qsqlrelationaltablemodel_order_by_clause(model) bind(c, name="qsqlrelationaltablemodel_order_by_clause")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: model
+            character(kind=c_char), dimension(*) :: qsqlrelationaltablemodel_order_by_clause
+        end function qsqlrelationaltablemodel_order_by_clause
+
+        subroutine qsqlrelationaltablemodel_set_order_by_clause(model, clause) bind(c, name="qsqlrelationaltablemodel_set_order_by_clause")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: model
+            character(kind=c_char), dimension(*) :: clause
+        end subroutine qsqlrelationaltablemodel_set_order_by_clause
+
+        !> QSqlQueryModel
+        function qsqlquerymodel_new(parent, db) bind(c, name="qsqlquerymodel_new")
+            import :: c_ptr
+            type(c_ptr), value :: parent, db
+            type(c_ptr) :: qsqlquerymodel_new
+        end function qsqlquerymodel_new
+
+        subroutine qsqlquerymodel_set_query(model, query, db) bind(c, name="qsqlquerymodel_set_query")
+            import :: c_ptr
+            type(c_ptr), value :: model, query, db
+        end subroutine qsqlquerymodel_set_query
+
+        function qsqlquerymodel_query(model) bind(c, name="qsqlquerymodel_query")
+            import :: c_ptr
+            type(c_ptr), value :: model
+            type(c_ptr) :: qsqlquerymodel_query
+        end function qsqlquerymodel_query
+
+        subroutine qsqlquerymodel_set_last_error(model, error) bind(c, name="qsqlquerymodel_set_last_error")
+            import :: c_ptr
+            type(c_ptr), value :: model, error
+        end subroutine qsqlquerymodel_set_last_error
+
+        function qsqlquerymodel_last_error(model) bind(c, name="qsqlquerymodel_last_error")
+            import :: c_ptr
+            type(c_ptr), value :: model
+            type(c_ptr) :: qsqlquerymodel_last_error
+        end function qsqlquerymodel_last_error
+
+        subroutine qsqlquerymodel_clear(model) bind(c, name="qsqlquerymodel_clear")
+            import :: c_ptr
+            type(c_ptr), value :: model
+        end subroutine qsqlquerymodel_clear
+
+        function qsqlquerymodel_query_change(model) bind(c, name="qsqlquerymodel_query_change")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: model
+            logical(c_bool) :: qsqlquerymodel_query_change
+        end function qsqlquerymodel_query_change
+
+        function qsqlquerymodel_index_in_query(model, item) bind(c, name="qsqlquerymodel_index_in_query")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: model, item
+            integer(c_int) :: qsqlquerymodel_index_in_query
+        end function qsqlquerymodel_index_in_query
+
+        !> QSqlError
+        function qsqlerror_new(type, driver_text, database_text, connection_text, number) bind(c, name="qsqlerror_new")
+            import :: c_ptr, c_int, c_char
+            integer(c_int), value :: type, number
+            character(kind=c_char), dimension(*) :: driver_text, database_text, connection_text
+            type(c_ptr) :: qsqlerror_new
+        end function qsqlerror_new
+
+        function qsqlerror_type(error) bind(c, name="qsqlerror_type")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: error
+            integer(c_int) :: qsqlerror_type
+        end function qsqlerror_type
+
+        function qsqlerror_number(error) bind(c, name="qsqlerror_number")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: error
+            integer(c_int) :: qsqlerror_number
+        end function qsqlerror_number
+
+        function qsqlerror_database_text(error) bind(c, name="qsqlerror_database_text")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: error
+            character(kind=c_char), dimension(*) :: qsqlerror_database_text
+        end function qsqlerror_database_text
+
+        function qsqlerror_driver_text(error) bind(c, name="qsqlerror_driver_text")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: error
+            character(kind=c_char), dimension(*) :: qsqlerror_driver_text
+        end function qsqlerror_driver_text
+
+        function qsqlerror_text(error) bind(c, name="qsqlerror_text")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: error
+            character(kind=c_char), dimension(*) :: qsqlerror_text
+        end function qsqlerror_text
+
+        function qsqlerror_is_valid(error) bind(c, name="qsqlerror_is_valid")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: error
+            logical(c_bool) :: qsqlerror_is_valid
+        end function qsqlerror_is_valid
+
+        subroutine qsqlerror_swap(error1, error2) bind(c, name="qsqlerror_swap")
+            import :: c_ptr
+            type(c_ptr), value :: error1, error2
+        end subroutine qsqlerror_swap
+
+        !> QSqlDriver
+        function qsqldriver_new(parent) bind(c, name="qsqldriver_new")
+            import :: c_ptr
+            type(c_ptr), value :: parent
+            type(c_ptr) :: qsqldriver_new
+        end function qsqldriver_new
+
+        function qsqldriver_is_open(driver) bind(c, name="qsqldriver_is_open")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: driver
+            logical(c_bool) :: qsqldriver_is_open
+        end function qsqldriver_is_open
+
+        function qsqldriver_is_open_error(driver) bind(c, name="qsqldriver_is_open_error")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: driver
+            logical(c_bool) :: qsqldriver_is_open_error
+        end function qsqldriver_is_open_error
+
+        function qsqldriver_last_error(driver) bind(c, name="qsqldriver_last_error")
+            import :: c_ptr
+            type(c_ptr), value :: driver
+            type(c_ptr) :: qsqldriver_last_error
+        end function qsqldriver_last_error
+
+        function qsqldriver_driver_name(driver) bind(c, name="qsqldriver_driver_name")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: driver
+            character(kind=c_char), dimension(*) :: qsqldriver_driver_name
+        end function qsqldriver_driver_name
+
+        function qsqldriver_has_feature(driver, feature) bind(c, name="qsqldriver_has_feature")
+            import :: c_ptr, c_int, c_bool
+            type(c_ptr), value :: driver
+            integer(c_int), value :: feature
+            logical(c_bool) :: qsqldriver_has_feature
+        end function qsqldriver_has_feature
+
+        function qsqldriver_open(driver, db, user, password, host, port, options) bind(c, name="qsqldriver_open")
+            import :: c_ptr, c_char, c_int, c_bool
+            type(c_ptr), value :: driver
+            character(kind=c_char), dimension(*) :: db, user, password, host, options
+            integer(c_int), value :: port
+            logical(c_bool) :: qsqldriver_open
+        end function qsqldriver_open
+
+        function qsqldriver_close(driver) bind(c, name="qsqldriver_close")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: driver
+            logical(c_bool) :: qsqldriver_close
+        end function qsqldriver_close
+
+        function qsqldriver_create_result(driver) bind(c, name="qsqldriver_create_result")
+            import :: c_ptr
+            type(c_ptr), value :: driver
+            type(c_ptr) :: qsqldriver_create_result
+        end function qsqldriver_create_result
+
+        function qsqldriver_begin_transaction(driver) bind(c, name="qsqldriver_begin_transaction")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: driver
+            logical(c_bool) :: qsqldriver_begin_transaction
+        end function qsqldriver_begin_transaction
+
+        function qsqldriver_commit_transaction(driver) bind(c, name="qsqldriver_commit_transaction")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: driver
+            logical(c_bool) :: qsqldriver_commit_transaction
+        end function qsqldriver_commit_transaction
+
+        function qsqldriver_rollback_transaction(driver) bind(c, name="qsqldriver_rollback_transaction")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: driver
+            logical(c_bool) :: qsqldriver_rollback_transaction
+        end function qsqldriver_rollback_transaction
+
+        function qsqldriver_sql_statement(driver, type, table_name, rec, prepared_statement) bind(c, name="qsqldriver_sql_statement")
+            import :: c_ptr, c_int, c_char, c_bool
+            type(c_ptr), value :: driver, rec
+            integer(c_int), value :: type
+            character(kind=c_char), dimension(*) :: table_name
+            logical(c_bool), value :: prepared_statement
+            character(kind=c_char), dimension(*) :: qsqldriver_sql_statement
+        end function qsqldriver_sql_statement
+
+        function qsqldriver_escape_identifier(driver, identifier, type) bind(c, name="qsqldriver_escape_identifier")
+            import :: c_ptr, c_char, c_int
+            type(c_ptr), value :: driver
+            character(kind=c_char), dimension(*) :: identifier
+            integer(c_int), value :: type
+            character(kind=c_char), dimension(*) :: qsqldriver_escape_identifier
+        end function qsqldriver_escape_identifier
+
+        function qsqldriver_format_value(driver, field, trim_strings) bind(c, name="qsqldriver_format_value")
+            import :: c_ptr, c_bool, c_char
+            type(c_ptr), value :: field
+            logical(c_bool), value :: trim_strings
+            character(kind=c_char), dimension(*) :: qsqldriver_format_value
+        end function qsqldriver_format_value
+
+        function qsqldriver_record(driver, table) bind(c, name="qsqldriver_record")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: driver
+            character(kind=c_char), dimension(*) :: table
+            type(c_ptr) :: qsqldriver_record
+        end function qsqldriver_record
+
+        function qsqldriver_primary_index(driver, table_name) bind(c, name="qsqldriver_primary_index")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: driver
+            character(kind=c_char), dimension(*) :: table_name
+            type(c_ptr) :: qsqldriver_primary_index
+        end function qsqldriver_primary_index
+
+        function qsqldriver_is_identifier_escaped(driver, identifier, type) bind(c, name="qsqldriver_is_identifier_escaped")
+            import :: c_ptr, c_char, c_int, c_bool
+            type(c_ptr), value :: driver
+            character(kind=c_char), dimension(*) :: identifier
+            integer(c_int), value :: type
+            logical(c_bool) :: qsqldriver_is_identifier_escaped
+        end function qsqldriver_is_identifier_escaped
+
+        function qsqldriver_strip_delimiters(driver, identifier, type) bind(c, name="qsqldriver_strip_delimiters")
+            import :: c_ptr, c_char, c_int
+            type(c_ptr), value :: driver
+            character(kind=c_char), dimension(*) :: identifier
+            integer(c_int), value :: type
+            character(kind=c_char), dimension(*) :: qsqldriver_strip_delimiters
+        end function qsqldriver_strip_delimiters
+
+        function qsqldriver_conformance_level(driver) bind(c, name="qsqldriver_conformance_level")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: driver
+            integer(c_int) :: qsqldriver_conformance_level
+        end function qsqldriver_conformance_level
+
+    end interface
+
+end module forge_qt_bindings
             import :: c_ptr, c_int
             type(c_ptr), value :: player
             integer(c_int) :: qmediaplayer_error
@@ -1098,6 +1618,745 @@ module forge_qt_bindings
             type(c_ptr) :: qvideorecorder_new
         end function qvideorecorder_new
 
-    end interface
+        !> SQL Database Bindings
 
-end module forge_qt_bindings
+        !> QSqlDatabase
+        function qsqldatabase_new() bind(c, name="qsqldatabase_new")
+            import :: c_ptr
+            type(c_ptr) :: qsqldatabase_new
+        end function qsqldatabase_new
+
+        function qsqldatabase_add_database(type, connection_name) bind(c, name="qsqldatabase_add_database")
+            import :: c_ptr, c_char
+            character(kind=c_char), dimension(*) :: type
+            character(kind=c_char), dimension(*) :: connection_name
+            type(c_ptr) :: qsqldatabase_add_database
+        end function qsqldatabase_add_database
+
+        function qsqldatabase_database(connection_name, open_default) bind(c, name="qsqldatabase_database")
+            import :: c_ptr, c_char, c_bool
+            character(kind=c_char), dimension(*) :: connection_name
+            logical(c_bool), value :: open_default
+            type(c_ptr) :: qsqldatabase_database
+        end function qsqldatabase_database
+
+        subroutine qsqldatabase_remove_database(connection_name) bind(c, name="qsqldatabase_remove_database")
+            import :: c_char
+            character(kind=c_char), dimension(*) :: connection_name
+        end subroutine qsqldatabase_remove_database
+
+        function qsqldatabase_contains(connection_name) bind(c, name="qsqldatabase_contains")
+            import :: c_bool, c_char
+            character(kind=c_char), dimension(*) :: connection_name
+            logical(c_bool) :: qsqldatabase_contains
+        end function qsqldatabase_contains
+
+        function qsqldatabase_connection_names() bind(c, name="qsqldatabase_connection_names")
+            import :: c_ptr
+            type(c_ptr) :: qsqldatabase_connection_names
+        end function qsqldatabase_connection_names
+
+        function qsqldatabase_drivers() bind(c, name="qsqldatabase_drivers")
+            import :: c_ptr
+            type(c_ptr) :: qsqldatabase_drivers
+        end function qsqldatabase_drivers
+
+        function qsqldatabase_is_driver_available(name) bind(c, name="qsqldatabase_is_driver_available")
+            import :: c_bool, c_char
+            character(kind=c_char), dimension(*) :: name
+            logical(c_bool) :: qsqldatabase_is_driver_available
+        end function qsqldatabase_is_driver_available
+
+        subroutine qsqldatabase_register_sql_driver(name, creator) bind(c, name="qsqldatabase_register_sql_driver")
+            import :: c_char, c_ptr
+            character(kind=c_char), dimension(*) :: name
+            type(c_ptr), value :: creator
+        end subroutine qsqldatabase_register_sql_driver
+
+        function qsqldatabase_clone_database(other, connection_name) bind(c, name="qsqldatabase_clone_database")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: other
+            character(kind=c_char), dimension(*) :: connection_name
+            type(c_ptr) :: qsqldatabase_clone_database
+        end function qsqldatabase_clone_database
+
+        function qsqldatabase_default_connection() bind(c, name="qsqldatabase_default_connection")
+            import :: c_ptr
+            type(c_ptr) :: qsqldatabase_default_connection
+        end function qsqldatabase_default_connection
+
+        subroutine qsqldatabase_set_default_connection(connection) bind(c, name="qsqldatabase_set_default_connection")
+            import :: c_ptr
+            type(c_ptr), value :: connection
+        end subroutine qsqldatabase_set_default_connection
+
+        function qsqldatabase_open(db) bind(c, name="qsqldatabase_open")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: db
+            logical(c_bool) :: qsqldatabase_open
+        end function qsqldatabase_open
+
+        subroutine qsqldatabase_close(db) bind(c, name="qsqldatabase_close")
+            import :: c_ptr
+            type(c_ptr), value :: db
+        end subroutine qsqldatabase_close
+
+        function qsqldatabase_is_open(db) bind(c, name="qsqldatabase_is_open")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: db
+            logical(c_bool) :: qsqldatabase_is_open
+        end function qsqldatabase_is_open
+
+        function qsqldatabase_is_open_error(db) bind(c, name="qsqldatabase_is_open_error")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: db
+            logical(c_bool) :: qsqldatabase_is_open_error
+        end function qsqldatabase_is_open_error
+
+        function qsqldatabase_last_error(db) bind(c, name="qsqldatabase_last_error")
+            import :: c_ptr
+            type(c_ptr), value :: db
+            type(c_ptr) :: qsqldatabase_last_error
+        end function qsqldatabase_last_error
+
+        subroutine qsqldatabase_set_database_name(db, name) bind(c, name="qsqldatabase_set_database_name")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: db
+            character(kind=c_char), dimension(*) :: name
+        end subroutine qsqldatabase_set_database_name
+
+        function qsqldatabase_database_name(db) bind(c, name="qsqldatabase_database_name")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: db
+            character(kind=c_char), dimension(*) :: qsqldatabase_database_name
+        end function qsqldatabase_database_name
+
+        subroutine qsqldatabase_set_user_name(db, name) bind(c, name="qsqldatabase_set_user_name")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: db
+            character(kind=c_char), dimension(*) :: name
+        end subroutine qsqldatabase_set_user_name
+
+        function qsqldatabase_user_name(db) bind(c, name="qsqldatabase_user_name")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: db
+            character(kind=c_char), dimension(*) :: qsqldatabase_user_name
+        end function qsqldatabase_user_name
+
+        subroutine qsqldatabase_set_password(db, password) bind(c, name="qsqldatabase_set_password")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: db
+            character(kind=c_char), dimension(*) :: password
+        end subroutine qsqldatabase_set_password
+
+        function qsqldatabase_password(db) bind(c, name="qsqldatabase_password")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: db
+            character(kind=c_char), dimension(*) :: qsqldatabase_password
+        end function qsqldatabase_password
+
+        subroutine qsqldatabase_set_host_name(db, host) bind(c, name="qsqldatabase_set_host_name")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: db
+            character(kind=c_char), dimension(*) :: host
+        end subroutine qsqldatabase_set_host_name
+
+        function qsqldatabase_host_name(db) bind(c, name="qsqldatabase_host_name")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: db
+            character(kind=c_char), dimension(*) :: qsqldatabase_host_name
+        end function qsqldatabase_host_name
+
+        subroutine qsqldatabase_set_port(db, port) bind(c, name="qsqldatabase_set_port")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: db
+            integer(c_int), value :: port
+        end subroutine qsqldatabase_set_port
+
+        function qsqldatabase_port(db) bind(c, name="qsqldatabase_port")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: db
+            integer(c_int) :: qsqldatabase_port
+        end function qsqldatabase_port
+
+        subroutine qsqldatabase_set_connect_options(db, options) bind(c, name="qsqldatabase_set_connect_options")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: db
+            character(kind=c_char), dimension(*) :: options
+        end subroutine qsqldatabase_set_connect_options
+
+        function qsqldatabase_connect_options(db) bind(c, name="qsqldatabase_connect_options")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: db
+            character(kind=c_char), dimension(*) :: qsqldatabase_connect_options
+        end function qsqldatabase_connect_options
+
+        function qsqldatabase_driver(db) bind(c, name="qsqldatabase_driver")
+            import :: c_ptr
+            type(c_ptr), value :: db
+            type(c_ptr) :: qsqldatabase_driver
+        end function qsqldatabase_driver
+
+        function qsqldatabase_driver_name(db) bind(c, name="qsqldatabase_driver_name")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: db
+            character(kind=c_char), dimension(*) :: qsqldatabase_driver_name
+        end function qsqldatabase_driver_name
+
+        subroutine qsqldatabase_set_numerical_precision_policy(db, precision_policy) bind(c, name="qsqldatabase_set_numerical_precision_policy")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: db
+            integer(c_int), value :: precision_policy
+        end subroutine qsqldatabase_set_numerical_precision_policy
+
+        function qsqldatabase_numerical_precision_policy(db) bind(c, name="qsqldatabase_numerical_precision_policy")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: db
+            integer(c_int) :: qsqldatabase_numerical_precision_policy
+        end function qsqldatabase_numerical_precision_policy
+
+        function qsqldatabase_transaction(db) bind(c, name="qsqldatabase_transaction")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: db
+            logical(c_bool) :: qsqldatabase_transaction
+        end function qsqldatabase_transaction
+
+        function qsqldatabase_commit(db) bind(c, name="qsqldatabase_commit")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: db
+            logical(c_bool) :: qsqldatabase_commit
+        end function qsqldatabase_commit
+
+        function qsqldatabase_rollback(db) bind(c, name="qsqldatabase_rollback")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: db
+            logical(c_bool) :: qsqldatabase_rollback
+        end function qsqldatabase_rollback
+
+        subroutine qsqldatabase_set_transaction_mode(db, mode) bind(c, name="qsqldatabase_set_transaction_mode")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: db
+            integer(c_int), value :: mode
+        end subroutine qsqldatabase_set_transaction_mode
+
+        function qsqldatabase_transaction_mode(db) bind(c, name="qsqldatabase_transaction_mode")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: db
+            integer(c_int) :: qsqldatabase_transaction_mode
+        end function qsqldatabase_transaction_mode
+
+        !> QSqlQuery
+        function qsqlquery_new(db) bind(c, name="qsqlquery_new")
+            import :: c_ptr
+            type(c_ptr), value :: db
+            type(c_ptr) :: qsqlquery_new
+        end function qsqlquery_new
+
+        function qsqlquery_exec(query, query_str) bind(c, name="qsqlquery_exec")
+            import :: c_ptr, c_char, c_bool
+            type(c_ptr), value :: query
+            character(kind=c_char), dimension(*) :: query_str
+            logical(c_bool) :: qsqlquery_exec
+        end function qsqlquery_exec
+
+        function qsqlquery_exec_batch(query, mode) bind(c, name="qsqlquery_exec_batch")
+            import :: c_ptr, c_int, c_bool
+            type(c_ptr), value :: query
+            integer(c_int), value :: mode
+            logical(c_bool) :: qsqlquery_exec_batch
+        end function qsqlquery_exec_batch
+
+        function qsqlquery_prepare(query, query_str) bind(c, name="qsqlquery_prepare")
+            import :: c_ptr, c_char, c_bool
+            type(c_ptr), value :: query
+            character(kind=c_char), dimension(*) :: query_str
+            logical(c_bool) :: qsqlquery_prepare
+        end function qsqlquery_prepare
+
+        subroutine qsqlquery_bind_value(query, placeholder, val, type) bind(c, name="qsqlquery_bind_value")
+            import :: c_ptr, c_char, c_int
+            type(c_ptr), value :: query
+            character(kind=c_char), dimension(*) :: placeholder
+            type(c_ptr), value :: val
+            integer(c_int), value :: type
+        end subroutine qsqlquery_bind_value
+
+        subroutine qsqlquery_add_bind_value(query, val, type) bind(c, name="qsqlquery_add_bind_value")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: query
+            type(c_ptr), value :: val
+            integer(c_int), value :: type
+        end subroutine qsqlquery_add_bind_value
+
+        function qsqlquery_bound_value(query, placeholder) bind(c, name="qsqlquery_bound_value")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: query
+            character(kind=c_char), dimension(*) :: placeholder
+            type(c_ptr) :: qsqlquery_bound_value
+        end function qsqlquery_bound_value
+
+        function qsqlquery_bound_values(query) bind(c, name="qsqlquery_bound_values")
+            import :: c_ptr
+            type(c_ptr), value :: query
+            type(c_ptr) :: qsqlquery_bound_values
+        end function qsqlquery_bound_values
+
+        function qsqlquery_next(query) bind(c, name="qsqlquery_next")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: query
+            logical(c_bool) :: qsqlquery_next
+        end function qsqlquery_next
+
+        function qsqlquery_previous(query) bind(c, name="qsqlquery_previous")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: query
+            logical(c_bool) :: qsqlquery_previous
+        end function qsqlquery_previous
+
+        function qsqlquery_first(query) bind(c, name="qsqlquery_first")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: query
+            logical(c_bool) :: qsqlquery_first
+        end function qsqlquery_first
+
+        function qsqlquery_last(query) bind(c, name="qsqlquery_last")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: query
+            logical(c_bool) :: qsqlquery_last
+        end function qsqlquery_last
+
+        function qsqlquery_seek(query, index, relative) bind(c, name="qsqlquery_seek")
+            import :: c_ptr, c_int, c_bool
+            type(c_ptr), value :: query
+            integer(c_int), value :: index
+            logical(c_bool), value :: relative
+            logical(c_bool) :: qsqlquery_seek
+        end function qsqlquery_seek
+
+        function qsqlquery_at(query) bind(c, name="qsqlquery_at")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: query
+            integer(c_int) :: qsqlquery_at
+        end function qsqlquery_at
+
+        function qsqlquery_size(query) bind(c, name="qsqlquery_size")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: query
+            integer(c_int) :: qsqlquery_size
+        end function qsqlquery_size
+
+        function qsqlquery_is_active(query) bind(c, name="qsqlquery_is_active")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: query
+            logical(c_bool) :: qsqlquery_is_active
+        end function qsqlquery_is_active
+
+        function qsqlquery_is_forward_only(query) bind(c, name="qsqlquery_is_forward_only")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: query
+            logical(c_bool) :: qsqlquery_is_forward_only
+        end function qsqlquery_is_forward_only
+
+        subroutine qsqlquery_set_forward_only(query, forward) bind(c, name="qsqlquery_set_forward_only")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: query
+            logical(c_bool), value :: forward
+        end subroutine qsqlquery_set_forward_only
+
+        function qsqlquery_is_valid(query) bind(c, name="qsqlquery_is_valid")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: query
+            logical(c_bool) :: qsqlquery_is_valid
+        end function qsqlquery_is_valid
+
+        function qsqlquery_is_null(query, field) bind(c, name="qsqlquery_is_null")
+            import :: c_ptr, c_int, c_bool
+            type(c_ptr), value :: query
+            integer(c_int), value :: field
+            logical(c_bool) :: qsqlquery_is_null
+        end function qsqlquery_is_null
+
+        function qsqlquery_value(query, index) bind(c, name="qsqlquery_value")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: query
+            integer(c_int), value :: index
+            type(c_ptr) :: qsqlquery_value
+        end function qsqlquery_value
+
+        function qsqlquery_record(query) bind(c, name="qsqlquery_record")
+            import :: c_ptr
+            type(c_ptr), value :: query
+            type(c_ptr) :: qsqlquery_record
+        end function qsqlquery_record
+
+        function qsqlquery_driver(query) bind(c, name="qsqlquery_driver")
+            import :: c_ptr
+            type(c_ptr), value :: query
+            type(c_ptr) :: qsqlquery_driver
+        end function qsqlquery_driver
+
+        function qsqlquery_numerical_precision_policy(query) bind(c, name="qsqlquery_numerical_precision_policy")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: query
+            integer(c_int) :: qsqlquery_numerical_precision_policy
+        end function qsqlquery_numerical_precision_policy
+
+        subroutine qsqlquery_set_numerical_precision_policy(query, precision_policy) bind(c, name="qsqlquery_set_numerical_precision_policy")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: query
+            integer(c_int), value :: precision_policy
+        end subroutine qsqlquery_set_numerical_precision_policy
+
+        function qsqlquery_last_query(query) bind(c, name="qsqlquery_last_query")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: query
+            character(kind=c_char), dimension(*) :: qsqlquery_last_query
+        end function qsqlquery_last_query
+
+        function qsqlquery_last_error(query) bind(c, name="qsqlquery_last_error")
+            import :: c_ptr
+            type(c_ptr), value :: query
+            type(c_ptr) :: qsqlquery_last_error
+        end function qsqlquery_last_error
+
+        function qsqlquery_executed_query(query) bind(c, name="qsqlquery_executed_query")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: query
+            character(kind=c_char), dimension(*) :: qsqlquery_executed_query
+        end function qsqlquery_executed_query
+
+        subroutine qsqlquery_clear(query) bind(c, name="qsqlquery_clear")
+            import :: c_ptr
+            type(c_ptr), value :: query
+        end subroutine qsqlquery_clear
+
+        subroutine qsqlquery_finish(query) bind(c, name="qsqlquery_finish")
+            import :: c_ptr
+            type(c_ptr), value :: query
+        end subroutine qsqlquery_finish
+
+        function qsqlquery_next_result(query) bind(c, name="qsqlquery_next_result")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: query
+            logical(c_bool) :: qsqlquery_next_result
+        end function qsqlquery_next_result
+
+        !> QSqlRecord
+        function qsqlrecord_new() bind(c, name="qsqlrecord_new")
+            import :: c_ptr
+            type(c_ptr) :: qsqlrecord_new
+        end function qsqlrecord_new
+
+        subroutine qsqlrecord_append(record, field) bind(c, name="qsqlrecord_append")
+            import :: c_ptr
+            type(c_ptr), value :: record, field
+        end subroutine qsqlrecord_append
+
+        subroutine qsqlrecord_replace(record, pos, field) bind(c, name="qsqlrecord_replace")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: record
+            integer(c_int), value :: pos
+            type(c_ptr), value :: field
+        end subroutine qsqlrecord_replace
+
+        subroutine qsqlrecord_remove(record, pos) bind(c, name="qsqlrecord_remove")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: record
+            integer(c_int), value :: pos
+        end subroutine qsqlrecord_remove
+
+        subroutine qsqlrecord_insert(record, pos, field) bind(c, name="qsqlrecord_insert")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: record
+            integer(c_int), value :: pos
+            type(c_ptr), value :: field
+        end subroutine qsqlrecord_insert
+
+        subroutine qsqlrecord_clear(record) bind(c, name="qsqlrecord_clear")
+            import :: c_ptr
+            type(c_ptr), value :: record
+        end subroutine qsqlrecord_clear
+
+        subroutine qsqlrecord_clear_values(record) bind(c, name="qsqlrecord_clear_values")
+            import :: c_ptr
+            type(c_ptr), value :: record
+        end subroutine qsqlrecord_clear_values
+
+        function qsqlrecord_count(record) bind(c, name="qsqlrecord_count")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: record
+            integer(c_int) :: qsqlrecord_count
+        end function qsqlrecord_count
+
+        function qsqlrecord_contains(record, name) bind(c, name="qsqlrecord_contains")
+            import :: c_ptr, c_char, c_bool
+            type(c_ptr), value :: record
+            character(kind=c_char), dimension(*) :: name
+            logical(c_bool) :: qsqlrecord_contains
+        end function qsqlrecord_contains
+
+        function qsqlrecord_field(record, index) bind(c, name="qsqlrecord_field")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: record
+            integer(c_int), value :: index
+            type(c_ptr) :: qsqlrecord_field
+        end function qsqlrecord_field
+
+        function qsqlrecord_field_name(record, index) bind(c, name="qsqlrecord_field_name")
+            import :: c_ptr, c_int, c_char
+            type(c_ptr), value :: record
+            integer(c_int), value :: index
+            character(kind=c_char), dimension(*) :: qsqlrecord_field_name
+        end function qsqlrecord_field_name
+
+        function qsqlrecord_index_of(record, name) bind(c, name="qsqlrecord_index_of")
+            import :: c_ptr, c_char, c_int
+            type(c_ptr), value :: record
+            character(kind=c_char), dimension(*) :: name
+            integer(c_int) :: qsqlrecord_index_of
+        end function qsqlrecord_index_of
+
+        function qsqlrecord_is_empty(record) bind(c, name="qsqlrecord_is_empty")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: record
+            logical(c_bool) :: qsqlrecord_is_empty
+        end function qsqlrecord_is_empty
+
+        function qsqlrecord_is_generated(record, index) bind(c, name="qsqlrecord_is_generated")
+            import :: c_ptr, c_int, c_bool
+            type(c_ptr), value :: record
+            integer(c_int), value :: index
+            logical(c_bool) :: qsqlrecord_is_generated
+        end function qsqlrecord_is_generated
+
+        function qsqlrecord_is_null(record, index) bind(c, name="qsqlrecord_is_null")
+            import :: c_ptr, c_int, c_bool
+            type(c_ptr), value :: record
+            integer(c_int), value :: index
+            logical(c_bool) :: qsqlrecord_is_null
+        end function qsqlrecord_is_null
+
+        function qsqlrecord_name_to_index(record, name) bind(c, name="qsqlrecord_name_to_index")
+            import :: c_ptr, c_char, c_int
+            type(c_ptr), value :: record
+            character(kind=c_char), dimension(*) :: name
+            integer(c_int) :: qsqlrecord_name_to_index
+        end function qsqlrecord_name_to_index
+
+        subroutine qsqlrecord_set_generated(record, index, generated) bind(c, name="qsqlrecord_set_generated")
+            import :: c_ptr, c_int, c_bool
+            type(c_ptr), value :: record
+            integer(c_int), value :: index
+            logical(c_bool), value :: generated
+        end subroutine qsqlrecord_set_generated
+
+        subroutine qsqlrecord_set_null(record, index) bind(c, name="qsqlrecord_set_null")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: record
+            integer(c_int), value :: index
+        end subroutine qsqlrecord_set_null
+
+        subroutine qsqlrecord_set_value(record, index, val) bind(c, name="qsqlrecord_set_value")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: record
+            integer(c_int), value :: index
+            type(c_ptr), value :: val
+        end subroutine qsqlrecord_set_value
+
+        function qsqlrecord_value(record, index) bind(c, name="qsqlrecord_value")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: record
+            integer(c_int), value :: index
+            type(c_ptr) :: qsqlrecord_value
+        end function qsqlrecord_value
+
+        !> QSqlField
+        function qsqlfield_new(field_name, type) bind(c, name="qsqlfield_new")
+            import :: c_ptr, c_char, c_int
+            character(kind=c_char), dimension(*) :: field_name
+            integer(c_int), value :: type
+            type(c_ptr) :: qsqlfield_new
+        end function qsqlfield_new
+
+        subroutine qsqlfield_set_value(field, value) bind(c, name="qsqlfield_set_value")
+            import :: c_ptr
+            type(c_ptr), value :: field, value
+        end subroutine qsqlfield_set_value
+
+        function qsqlfield_value(field) bind(c, name="qsqlfield_value")
+            import :: c_ptr
+            type(c_ptr), value :: field
+            type(c_ptr) :: qsqlfield_value
+        end function qsqlfield_value
+
+        subroutine qsqlfield_set_name(field, name) bind(c, name="qsqlfield_set_name")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: field
+            character(kind=c_char), dimension(*) :: name
+        end subroutine qsqlfield_set_name
+
+        function qsqlfield_name(field) bind(c, name="qsqlfield_name")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: field
+            character(kind=c_char), dimension(*) :: qsqlfield_name
+        end function qsqlfield_name
+
+        function qsqlfield_is_null(field) bind(c, name="qsqlfield_is_null")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: field
+            logical(c_bool) :: qsqlfield_is_null
+        end function qsqlfield_is_null
+
+        subroutine qsqlfield_set_null(field) bind(c, name="qsqlfield_set_null")
+            import :: c_ptr
+            type(c_ptr), value :: field
+        end subroutine qsqlfield_set_null
+
+        function qsqlfield_is_valid(field) bind(c, name="qsqlfield_is_valid")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: field
+            logical(c_bool) :: qsqlfield_is_valid
+        end function qsqlfield_is_valid
+
+        function qsqlfield_is_auto_value(field) bind(c, name="qsqlfield_is_auto_value")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: field
+            logical(c_bool) :: qsqlfield_is_auto_value
+        end function qsqlfield_is_auto_value
+
+        subroutine qsqlfield_set_auto_value(field, auto_value) bind(c, name="qsqlfield_set_auto_value")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: field
+            logical(c_bool), value :: auto_value
+        end subroutine qsqlfield_set_auto_value
+
+        function qsqlfield_is_generated(field) bind(c, name="qsqlfield_is_generated")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: field
+            logical(c_bool) :: qsqlfield_is_generated
+        end function qsqlfield_is_generated
+
+        subroutine qsqlfield_set_generated(field, generated) bind(c, name="qsqlfield_set_generated")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: field
+            logical(c_bool), value :: generated
+        end subroutine qsqlfield_set_generated
+
+        function qsqlfield_is_read_only(field) bind(c, name="qsqlfield_is_read_only")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: field
+            logical(c_bool) :: qsqlfield_is_read_only
+        end function qsqlfield_is_read_only
+
+        subroutine qsqlfield_set_read_only(field, read_only) bind(c, name="qsqlfield_set_read_only")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: field
+            logical(c_bool), value :: read_only
+        end subroutine qsqlfield_set_read_only
+
+        function qsqlfield_type(field) bind(c, name="qsqlfield_type")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: field
+            integer(c_int) :: qsqlfield_type
+        end function qsqlfield_type
+
+        subroutine qsqlfield_set_type(field, type) bind(c, name="qsqlfield_set_type")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: field
+            integer(c_int), value :: type
+        end subroutine qsqlfield_set_type
+
+        function qsqlfield_required_status(field) bind(c, name="qsqlfield_required_status")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: field
+            integer(c_int) :: qsqlfield_required_status
+        end function qsqlfield_required_status
+
+        subroutine qsqlfield_set_required_status(field, required_status) bind(c, name="qsqlfield_set_required_status")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: field
+            integer(c_int), value :: required_status
+        end subroutine qsqlfield_set_required_status
+
+        function qsqlfield_length(field) bind(c, name="qsqlfield_length")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: field
+            integer(c_int) :: qsqlfield_length
+        end function qsqlfield_length
+
+        subroutine qsqlfield_set_length(field, field_length) bind(c, name="qsqlfield_set_length")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: field
+            integer(c_int), value :: field_length
+        end subroutine qsqlfield_set_length
+
+        function qsqlfield_precision(field) bind(c, name="qsqlfield_precision")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: field
+            integer(c_int) :: qsqlfield_precision
+        end function qsqlfield_precision
+
+        subroutine qsqlfield_set_precision(field, precision) bind(c, name="qsqlfield_set_precision")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: field
+            integer(c_int), value :: precision
+        end subroutine qsqlfield_set_precision
+
+        function qsqlfield_default_value(field) bind(c, name="qsqlfield_default_value")
+            import :: c_ptr
+            type(c_ptr), value :: field
+            type(c_ptr) :: qsqlfield_default_value
+        end function qsqlfield_default_value
+
+        subroutine qsqlfield_set_default_value(field, default_value) bind(c, name="qsqlfield_set_default_value")
+            import :: c_ptr
+            type(c_ptr), value :: field, default_value
+        end subroutine qsqlfield_set_default_value
+
+        function qsqlfield_table_name(field) bind(c, name="qsqlfield_table_name")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: field
+            character(kind=c_char), dimension(*) :: qsqlfield_table_name
+        end function qsqlfield_table_name
+
+        subroutine qsqlfield_set_table_name(field, table_name) bind(c, name="qsqlfield_set_table_name")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: field
+            character(kind=c_char), dimension(*) :: table_name
+        end subroutine qsqlfield_set_table_name
+
+        !> QSqlTableModel
+        function qsqltablemodel_new(parent, db) bind(c, name="qsqltablemodel_new")
+            import :: c_ptr
+            type(c_ptr), value :: parent, db
+            type(c_ptr) :: qsqltablemodel_new
+        end function qsqltablemodel_new
+
+        subroutine qsqltablemodel_set_table(model, table_name) bind(c, name="qsqltablemodel_set_table")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: model
+            character(kind=c_char), dimension(*) :: table_name
+        end subroutine qsqltablemodel_set_table
+
+        function qsqltablemodel_table_name(model) bind(c, name="qsqltablemodel_table_name")
+            import :: c_ptr, c_char
+            type(c_ptr), value :: model
+            character(kind=c_char), dimension(*) :: qsqltablemodel_table_name
+        end function qsqltablemodel_table_name
+
+        subroutine qsqltablemodel_set_edit_strategy(model, strategy) bind(c, name="qsqltablemodel_set_edit_strategy")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: model
+            integer(c_int), value :: strategy
+        end subroutine qsqltablemodel_set_edit_strategy
+
+        function qsqltablemodel_edit_strategy(model) bind(c, name="qsqltablemodel_edit_strategy")
+            import :: c_ptr, c_int
+            type(c_ptr), value :: model
+            integer(c_int) :: qsqltablemodel_edit_strategy
+        end function qsqltablemodel_edit_strategy
+
+        function qsqltablemodel_select(model) bind(c, name="qsqltablemodel_select")
+            import :: c_ptr, c_bool
+            type(c_ptr), value :: model
+            logical(c_bool) :: q
