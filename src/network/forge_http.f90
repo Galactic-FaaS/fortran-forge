@@ -297,6 +297,18 @@ contains
         this%error_code = -11
         this%error_string = "Request aborted"
         call this%error_occurred%emit(this%error_code)
+    subroutine httpclient_set_ssl_configuration(this, config)
+        class(QHttpClient), intent(inout) :: this
+        type(QSslConfiguration), intent(in) :: config
+        this%ssl_config = config
+        this%ssl_enabled = .true.
+    end subroutine httpclient_set_ssl_configuration
+
+    function httpclient_ssl_configuration(this) result(config)
+        class(QHttpClient), intent(in) :: this
+        type(QSslConfiguration) :: config
+        config = this%ssl_config
+    end function httpclient_ssl_configuration
     end subroutine httpclient_abort
 
     function httpclient_send(this, request) result(response)

@@ -9,6 +9,7 @@ module forge_layout
     use forge_types
     use forge_widgets
     use forge_containers
+    use forge_layout_solver
     implicit none
     private
 
@@ -29,11 +30,18 @@ module forge_layout
         private
         integer :: spacing = 5
         integer :: padding = 5
+        logical :: needs_recalc = .true.
+        integer(c_int) :: parent_width = 400
+        integer(c_int) :: parent_height = 300
     contains
         procedure :: set_spacing => forge_layout_set_spacing
         procedure :: set_padding => forge_layout_set_padding
         procedure :: get_spacing => forge_layout_get_spacing
         procedure :: get_padding => forge_layout_get_padding
+        procedure :: invalidate => forge_layout_invalidate
+        procedure :: set_parent_size => forge_layout_set_parent_size
+        procedure :: get_parent_width => forge_layout_get_parent_width
+        procedure :: get_parent_height => forge_layout_get_parent_height
         procedure(layout_add_widget_interface), deferred :: add_widget
         procedure(layout_remove_widget_interface), deferred :: remove_widget
         procedure(layout_compute_interface), deferred :: compute
@@ -186,6 +194,33 @@ contains
         padding = this%padding
     end function forge_layout_get_padding
 
+    subroutine forge_layout_invalidate(this)
+        class(forge_layout_base), intent(inout) :: this
+        this%needs_recalc = .true.
+    end subroutine forge_layout_invalidate
+
+    subroutine forge_layout_set_parent_size(this, width, height)
+        class(forge_layout_base), intent(inout) :: this
+        integer(c_int), intent(in) :: width, height
+        if (this%parent_width /= width .or. this%parent_height /= height) then
+            this%parent_width = width
+            this%parent_height = height
+            call this%invalidate()
+        end if
+    end subroutine forge_layout_set_parent_size
+
+    function forge_layout_get_parent_width(this) result(width)
+        class(forge_layout_base), intent(in) :: this
+        integer(c_int) :: width
+        width = this%parent_width
+    end function forge_layout_get_parent_width
+
+    function forge_layout_get_parent_height(this) result(height)
+        class(forge_layout_base), intent(in) :: this
+        integer(c_int) :: height
+        height = this%parent_height
+    end function forge_layout_get_parent_height
+
     ! ========== Grid Layout Methods ==========
 
     subroutine forge_grid_layout_set_dimensions(this, rows, columns)
@@ -238,6 +273,9 @@ contains
         this%col_indices(this%widgets%size()) = c
         this%row_spans(this%widgets%size()) = rs
         this%col_spans(this%widgets%size()) = cs
+
+        ! Invalidate layout when widgets are added
+        call this%invalidate()
     end subroutine forge_grid_layout_add_widget
 
     subroutine forge_grid_layout_remove_widget(this, widget)
@@ -255,65 +293,75 @@ contains
                 this%row_spans(index:this%widgets%size()) = this%row_spans(index+1:this%widgets%size()+1)
                 this%col_spans(index:this%widgets%size()) = this%col_spans(index+1:this%widgets%size()+1)
             end if
+            ! Invalidate layout when widgets are removed
+            call this%invalidate()
         end if
     end subroutine forge_grid_layout_remove_widget
 
     subroutine forge_grid_layout_compute(this)
         class(forge_grid_layout), intent(inout) :: this
-        integer :: i, num_widgets, parent_width, parent_height
+        integer :: i, num_widgets
         integer :: cell_width, cell_height, x_pos, y_pos
         integer :: widget_width, widget_height
-        type(forge_size) :: hint
+        type(forge_size) :: hint, min_size, max_size
+        type(forge_size_policy) :: policy
         class(forge_widget), pointer :: widget_ptr
+        type(forge_grid_layout_solver) :: solver
+        type(layout_solution), allocatable :: solutions(:)
+        class(forge_widget), allocatable :: widget_array(:)
 
         num_widgets = this%widgets%size()
         if (num_widgets == 0) return
 
-        ! Get parent dimensions from the first widget's parent (assuming all widgets have the same parent)
-        if (num_widgets > 0) then
-            widget_ptr => this%widgets%at(1)
+        ! Check if recalculation is needed
+        if (.not. this%needs_recalc) return
+        this%needs_recalc = .false.
+
+        ! Create widget array for solver
+        allocate(widget_array(num_widgets))
+        do i = 1, num_widgets
+            widget_ptr => this%widgets%at(i)
             if (associated(widget_ptr)) then
-                ! In a real implementation, widgets would have a parent reference
-                ! For now, use default values, but this would be retrieved from the parent widget
-                parent_width = 400
-                parent_height = 300
-            else
-                parent_width = 400
-                parent_height = 300
+                widget_array(i) = widget_ptr
             end if
-        else
-            parent_width = 400
-            parent_height = 300
-        end if
+        end do
 
-        cell_width = (parent_width - 2 * this%get_padding() - (this%columns - 1) * this%get_spacing()) / this%columns
-        cell_height = (parent_height - 2 * this%get_padding() - (this%rows - 1) * this%get_spacing()) / this%rows
+        ! Setup solver
+        call solver%set_available_size(this%get_parent_width(), this%get_parent_height())
+        call solver%set_padding(this%get_padding())
+        call solver%set_spacing(this%get_spacing())
+        call solver%set_dimensions(this%rows, this%columns)
 
+        ! Solve layout
+        call solver%solve(widget_array, solutions)
+
+        ! Apply solutions
         do i = 1, num_widgets
             widget_ptr => this%widgets%at(i)
             if (.not. associated(widget_ptr)) cycle
 
-            hint = widget_ptr%get_size_hint()
-
-            ! Calculate position based on grid indices
+            ! Calculate position based on grid indices with spans
             x_pos = this%get_padding() + this%col_indices(i) * (cell_width + this%get_spacing())
             y_pos = this%get_padding() + this%row_indices(i) * (cell_height + this%get_spacing())
 
-            ! Calculate size based on spans
-            widget_width = this%col_spans(i) * cell_width + (this%col_spans(i) - 1) * this%get_spacing()
-            widget_height = this%row_spans(i) * cell_height + (this%row_spans(i) - 1) * this%get_spacing()
+            ! Use solver results but adjust for spans
+            widget_width = solutions(i)%width * this%col_spans(i) + (this%col_spans(i) - 1) * this%get_spacing()
+            widget_height = solutions(i)%height * this%row_spans(i) + (this%row_spans(i) - 1) * this%get_spacing()
 
             ! Apply size policy constraints
-            if (widget_ptr%get_size_policy()%horizontal_policy == 0) then ! Fixed
-                widget_width = min(widget_width, hint%width)
-            end if
-            if (widget_ptr%get_size_policy()%vertical_policy == 0) then ! Fixed
-                widget_height = min(widget_height, hint%height)
-            end if
+            hint = widget_ptr%get_size_hint()
+            min_size = widget_ptr%get_minimum_size()
+            max_size = widget_ptr%get_maximum_size()
+            policy = widget_ptr%get_size_policy()
+
+            widget_width = policy%calculate_horizontal_size(hint%width, min_size%width, max_size%width, widget_width)
+            widget_height = policy%calculate_vertical_size(hint%height, min_size%height, max_size%height, widget_height)
 
             call widget_ptr%set_position(x_pos, y_pos)
             call widget_ptr%set_size(widget_width, widget_height)
         end do
+
+        deallocate(widget_array, solutions)
     end subroutine forge_grid_layout_compute
 
     ! ========== Box Layout Methods ==========
@@ -330,6 +378,8 @@ contains
         integer(c_int), intent(in), optional :: row, col, row_span, col_span
 
         call this%widgets%append(widget)
+        ! Invalidate layout when widgets are added
+        call this%invalidate()
     end subroutine forge_box_layout_add_widget
 
     subroutine forge_box_layout_remove_widget(this, widget)
@@ -340,119 +390,54 @@ contains
         index = this%widgets%index_of(widget)
         if (index > 0) then
             call this%widgets%remove(index)
+            ! Invalidate layout when widgets are removed
+            call this%invalidate()
         end if
     end subroutine forge_box_layout_remove_widget
 
     subroutine forge_box_layout_compute(this)
         class(forge_box_layout), intent(inout) :: this
-        integer :: i, num_widgets, total_stretch, available_space
-        integer :: x_pos, y_pos, widget_width, widget_height
-        integer :: fixed_width, fixed_height, stretch_space
-        integer :: parent_width, parent_height
-        type(forge_size) :: hint
+        integer :: i, num_widgets
+        type(forge_box_layout_solver) :: solver
+        type(layout_solution), allocatable :: solutions(:)
+        class(forge_widget), allocatable :: widget_array(:)
         class(forge_widget), pointer :: widget_ptr
 
         num_widgets = this%widgets%size()
         if (num_widgets == 0) return
 
-        ! Get parent dimensions from the first widget's parent (assuming all widgets have the same parent)
-        if (num_widgets > 0) then
-            widget_ptr => this%widgets%at(1)
+        ! Check if recalculation is needed
+        if (.not. this%needs_recalc) return
+        this%needs_recalc = .false.
+
+        ! Create widget array for solver
+        allocate(widget_array(num_widgets))
+        do i = 1, num_widgets
+            widget_ptr => this%widgets%at(i)
             if (associated(widget_ptr)) then
-                ! In a real implementation, widgets would have a parent reference
-                ! For now, use default values, but this would be retrieved from the parent widget
-                parent_width = 400
-                parent_height = 300
-            else
-                parent_width = 400
-                parent_height = 300
+                widget_array(i) = widget_ptr
             end if
-        else
-            parent_width = 400
-            parent_height = 300
-        end if
+        end do
 
-        ! Calculate total stretch factors
-        total_stretch = 0
-        fixed_width = 0
-        fixed_height = 0
+        ! Setup solver
+        call solver%set_available_size(this%get_parent_width(), this%get_parent_height())
+        call solver%set_padding(this%get_padding())
+        call solver%set_spacing(this%get_spacing())
+        call solver%set_orientation(this%orientation)
 
+        ! Solve layout
+        call solver%solve(widget_array, solutions)
+
+        ! Apply solutions
         do i = 1, num_widgets
             widget_ptr => this%widgets%at(i)
             if (.not. associated(widget_ptr)) cycle
 
-            hint = widget_ptr%get_size_hint()
-
-            if (this%orientation == LAYOUT_HORIZONTAL) then
-                select case (widget_ptr%get_size_policy()%horizontal_policy)
-                case (0) ! Fixed
-                    fixed_width = fixed_width + hint%width
-                case (4) ! Expanding
-                    total_stretch = total_stretch + max(1, widget_ptr%get_size_policy()%horizontal_stretch)
-                case default
-                    fixed_width = fixed_width + hint%width
-                end select
-            else ! Vertical
-                select case (widget_ptr%get_size_policy()%vertical_policy)
-                case (0) ! Fixed
-                    fixed_height = fixed_height + hint%height
-                case (4) ! Expanding
-                    total_stretch = total_stretch + max(1, widget_ptr%get_size_policy()%vertical_stretch)
-                case default
-                    fixed_height = fixed_height + hint%height
-                end select
-            end if
+            call widget_ptr%set_position(solutions(i)%x, solutions(i)%y)
+            call widget_ptr%set_size(solutions(i)%width, solutions(i)%height)
         end do
 
-        ! Calculate available space after spacing and padding
-        if (this%orientation == LAYOUT_HORIZONTAL) then
-            available_space = parent_width - 2 * this%get_padding() - (num_widgets - 1) * this%get_spacing() - fixed_width
-            stretch_space = available_space / max(1, total_stretch)
-        else
-            available_space = parent_height - 2 * this%get_padding() - (num_widgets - 1) * this%get_spacing() - fixed_height
-            stretch_space = available_space / max(1, total_stretch)
-        end if
-
-        ! Position widgets
-        x_pos = this%get_padding()
-        y_pos = this%get_padding()
-
-        do i = 1, num_widgets
-            widget_ptr => this%widgets%at(i)
-            if (.not. associated(widget_ptr)) cycle
-
-            hint = widget_ptr%get_size_hint()
-
-            if (this%orientation == LAYOUT_HORIZONTAL) then
-                widget_height = hint%height
-                select case (widget_ptr%get_size_policy()%horizontal_policy)
-                case (0) ! Fixed
-                    widget_width = hint%width
-                case (4) ! Expanding
-                    widget_width = stretch_space * max(1, widget_ptr%get_size_policy()%horizontal_stretch)
-                case default
-                    widget_width = hint%width
-                end select
-
-                call widget_ptr%set_position(x_pos, y_pos)
-                call widget_ptr%set_size(widget_width, widget_height)
-                x_pos = x_pos + widget_width + this%get_spacing()
-            else ! Vertical
-                widget_width = hint%width
-                select case (widget_ptr%get_size_policy()%vertical_policy)
-                case (0) ! Fixed
-                    widget_height = hint%height
-                case (4) ! Expanding
-                    widget_height = stretch_space * max(1, widget_ptr%get_size_policy()%vertical_stretch)
-                case default
-                    widget_height = hint%height
-                end select
-
-                call widget_ptr%set_position(x_pos, y_pos)
-                call widget_ptr%set_size(widget_width, widget_height)
-                y_pos = y_pos + widget_height + this%get_spacing()
-            end if
-        end do
+        deallocate(widget_array, solutions)
     end subroutine forge_box_layout_compute
 
     ! ========== Stack Layout Methods ==========
@@ -461,6 +446,8 @@ contains
         class(forge_stack_layout), intent(inout) :: this
         integer, intent(in) :: index
         this%current_index = max(1, min(index, this%widgets%size()))
+        ! Invalidate layout when current widget changes
+        call this%invalidate()
     end subroutine forge_stack_layout_set_current
 
     function forge_stack_layout_get_current(this) result(index)
@@ -477,6 +464,8 @@ contains
 
         call this%labels%append(label)
         call this%fields%append(field)
+        ! Invalidate layout when widgets are added
+        call this%invalidate()
     end subroutine forge_form_layout_add_row
 
     subroutine forge_form_layout_add_widget(this, widget, row, col, row_span, col_span)
@@ -501,6 +490,8 @@ contains
         if (index > 0) then
             call this%labels%remove(index)
             call this%fields%remove(index)  ! Remove corresponding field
+            ! Invalidate layout when widgets are removed
+            call this%invalidate()
             return
         end if
 
@@ -508,74 +499,65 @@ contains
         if (index > 0) then
             call this%fields%remove(index)
             call this%labels%remove(index)  ! Remove corresponding label
+            ! Invalidate layout when widgets are removed
+            call this%invalidate()
         end if
     end subroutine forge_form_layout_remove_widget
 
     subroutine forge_form_layout_compute(this)
         class(forge_form_layout), intent(inout) :: this
-        integer :: i, num_rows, parent_width, parent_height
-        integer :: label_width, field_width, row_height, y_pos
-        integer :: max_label_width
-        type(forge_size) :: label_hint, field_hint
-        class(forge_widget), pointer :: label_ptr, field_ptr
+        integer :: i, num_rows, num_widgets
+        type(forge_form_layout_solver) :: solver
+        type(layout_solution), allocatable :: solutions(:)
+        class(forge_widget), allocatable :: widget_array(:)
+        class(forge_widget), pointer :: widget_ptr
 
         num_rows = min(this%labels%size(), this%fields%size())
         if (num_rows == 0) return
 
-        ! Get parent dimensions from the first label's parent (assuming all widgets have the same parent)
-        if (num_rows > 0) then
-            label_ptr => this%labels%at(1)
-            if (associated(label_ptr)) then
-                ! In a real implementation, widgets would have a parent reference
-                ! For now, use default values, but this would be retrieved from the parent widget
-                parent_width = 400
-                parent_height = 300
-            else
-                parent_width = 400
-                parent_height = 300
-            end if
-        else
-            parent_width = 400
-            parent_height = 300
-        end if
+        ! Check if recalculation is needed
+        if (.not. this%needs_recalc) return
+        this%needs_recalc = .false.
 
-        ! Calculate maximum label width
-        max_label_width = 0
+        ! Create widget array for solver (labels and fields interleaved)
+        num_widgets = num_rows * 2
+        allocate(widget_array(num_widgets))
+
         do i = 1, num_rows
-            label_ptr => this%labels%at(i)
-            if (associated(label_ptr)) then
-                label_hint = label_ptr%get_size_hint()
-                max_label_width = max(max_label_width, label_hint%width)
+            widget_ptr => this%labels%at(i)
+            if (associated(widget_ptr)) then
+                widget_array(2*i-1) = widget_ptr
+            end if
+            widget_ptr => this%fields%at(i)
+            if (associated(widget_ptr)) then
+                widget_array(2*i) = widget_ptr
             end if
         end do
 
-        ! Set field width to remaining space
-        field_width = parent_width - 2 * this%get_padding() - max_label_width - this%get_spacing()
+        ! Setup solver
+        call solver%set_available_size(this%get_parent_width(), this%get_parent_height())
+        call solver%set_padding(this%get_padding())
+        call solver%set_spacing(this%get_spacing())
 
-        y_pos = this%get_padding()
+        ! Solve layout
+        call solver%solve(widget_array, solutions)
 
+        ! Apply solutions
         do i = 1, num_rows
-            label_ptr => this%labels%at(i)
-            field_ptr => this%fields%at(i)
-
-            if (associated(label_ptr)) then
-                label_hint = label_ptr%get_size_hint()
-                call label_ptr%set_position(this%get_padding(), y_pos)
-                call label_ptr%set_size(max_label_width, label_hint%height)
+            widget_ptr => this%labels%at(i)
+            if (associated(widget_ptr)) then
+                call widget_ptr%set_position(solutions(2*i-1)%x, solutions(2*i-1)%y)
+                call widget_ptr%set_size(solutions(2*i-1)%width, solutions(2*i-1)%height)
             end if
 
-            if (associated(field_ptr)) then
-                field_hint = field_ptr%get_size_hint()
-                call field_ptr%set_position(this%get_padding() + max_label_width + this%get_spacing(), y_pos)
-                call field_ptr%set_size(field_width, field_hint%height)
+            widget_ptr => this%fields%at(i)
+            if (associated(widget_ptr)) then
+                call widget_ptr%set_position(solutions(2*i)%x, solutions(2*i)%y)
+                call widget_ptr%set_size(solutions(2*i)%width, solutions(2*i)%height)
             end if
-
-            row_height = 0
-            if (associated(label_ptr)) row_height = max(row_height, label_ptr%get_size_hint()%height)
-            if (associated(field_ptr)) row_height = max(row_height, field_ptr%get_size_hint()%height)
-
-            y_pos = y_pos + row_height + this%get_spacing()
         end do
+
+        deallocate(widget_array, solutions)
     end subroutine forge_form_layout_compute
 
     subroutine forge_stack_layout_add_widget(this, widget, row, col, row_span, col_span)
@@ -584,6 +566,8 @@ contains
         integer(c_int), intent(in), optional :: row, col, row_span, col_span
 
         call this%widgets%append(widget)
+        ! Invalidate layout when widgets are added
+        call this%invalidate()
     end subroutine forge_stack_layout_add_widget
 
     subroutine forge_stack_layout_remove_widget(this, widget)
@@ -597,48 +581,61 @@ contains
             if (this%current_index > this%widgets%size()) then
                 this%current_index = this%widgets%size()
             end if
+            ! Invalidate layout when widgets are removed
+            call this%invalidate()
         end if
     end subroutine forge_stack_layout_remove_widget
 
     subroutine forge_stack_layout_compute(this)
         class(forge_stack_layout), intent(inout) :: this
-        integer :: i, num_widgets, parent_width, parent_height
+        integer :: i, num_widgets
+        type(forge_stack_layout_solver) :: solver
+        type(layout_solution), allocatable :: solutions(:)
+        class(forge_widget), allocatable :: widget_array(:)
         class(forge_widget), pointer :: widget_ptr
 
         num_widgets = this%widgets%size()
         if (num_widgets == 0) return
 
-        ! Get parent dimensions from the first widget's parent (assuming all widgets have the same parent)
-        if (num_widgets > 0) then
-            widget_ptr => this%widgets%at(1)
-            if (associated(widget_ptr)) then
-                ! In a real implementation, widgets would have a parent reference
-                ! For now, use default values, but this would be retrieved from the parent widget
-                parent_width = 400
-                parent_height = 300
-            else
-                parent_width = 400
-                parent_height = 300
-            end if
-        else
-            parent_width = 400
-            parent_height = 300
-        end if
+        ! Check if recalculation is needed
+        if (.not. this%needs_recalc) return
+        this%needs_recalc = .false.
 
+        ! Create widget array for solver
+        allocate(widget_array(num_widgets))
+        do i = 1, num_widgets
+            widget_ptr => this%widgets%at(i)
+            if (associated(widget_ptr)) then
+                widget_array(i) = widget_ptr
+            end if
+        end do
+
+        ! Setup solver
+        call solver%set_available_size(this%get_parent_width(), this%get_parent_height())
+        call solver%set_padding(this%get_padding())
+        call solver%set_spacing(this%get_spacing())
+        call solver%set_current_index(this%current_index)
+
+        ! Solve layout
+        call solver%solve(widget_array, solutions)
+
+        ! Apply solutions
         do i = 1, num_widgets
             widget_ptr => this%widgets%at(i)
             if (.not. associated(widget_ptr)) cycle
 
-            if (i == this%current_index) then
+            if (solutions(i)%width > 0 .and. solutions(i)%height > 0) then
                 ! Show current widget
                 call widget_ptr%show()
-                call widget_ptr%set_position(this%get_padding(), this%get_padding())
-                call widget_ptr%set_size(parent_width - 2 * this%get_padding(), parent_height - 2 * this%get_padding())
+                call widget_ptr%set_position(solutions(i)%x, solutions(i)%y)
+                call widget_ptr%set_size(solutions(i)%width, solutions(i)%height)
             else
                 ! Hide other widgets
                 call widget_ptr%hide()
             end if
         end do
+
+        deallocate(widget_array, solutions)
     end subroutine forge_stack_layout_compute
 
     ! ========== Qt-style Layout Constructors ==========

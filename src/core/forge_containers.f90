@@ -96,7 +96,7 @@ module forge_containers
 
     !> @brief QSet iterator
     type :: QSetIterator
-        type(QSet), pointer :: container => null()
+        class(QSet), pointer :: container => null()
         integer :: bucket_index = 0
         type(QHashNode), pointer :: current => null()
     contains
@@ -1224,221 +1224,7 @@ contains
     !> @param code The code block to execute for each element
     ! Note: Fortran doesn't support macros like C++, so this is conceptual
 
-    ! ========== Thread-Safe Variants ==========
 
-    !> @brief Thread-safe QVector with mutex protection
-    !> Note: In a real implementation, this would include mutex/lock
-    !> For Fortran, we would need to use threading libraries like OpenMP or coarrays
-    type :: QThreadSafeVector
-        type(QVector) :: vector
-        ! integer :: mutex ! Would be added with threading library
-    contains
-        procedure :: append => qthreadsafevector_append
-        procedure :: at => qthreadsafevector_at
-        procedure :: size => qthreadsafevector_size
-    end type QThreadSafeVector
-
-    !> @brief Thread-safe QHash with mutex protection
-    !> Note: In a real implementation, this would include mutex/lock
-    type :: QThreadSafeHash
-        type(QHash) :: hash
-        ! integer :: mutex ! Would be added with threading library
-    contains
-        procedure :: insert => qthreadsafehash_insert
-        procedure :: get => qthreadsafehash_get
-        procedure :: size => qthreadsafehash_size
-    end type QThreadSafeHash
-
-    ! ========== STL-Style Algorithms ==========
-
-    !> @brief Find element in QVector
-    function qfind_vector(container, value) result(iter)
-        type(QVector), intent(in) :: container
-        integer(int32), intent(in) :: value
-        type(QVectorIterator) :: iter
-        integer :: i
-
-        iter = container%iterator()
-        do i = 1, container%size()
-            if (iter%value() == value) return
-            call iter%next()
-        end do
-        ! Return end iterator if not found
-        iter%index = container%size() + 1
-    end function qfind_vector
-
-    !> @brief Sort QVector (simple bubble sort)
-    subroutine qsort_vector(container)
-        type(QVector), intent(inout) :: container
-        integer :: i, j, temp
-
-        call container%detach()
-        do i = 1, container%size() - 1
-            do j = i + 1, container%size()
-                if (container%at(i) > container%at(j)) then
-                    temp = container%at(i)
-                    call container%set(i, container%at(j))
-                    call container%set(j, temp)
-                end if
-            end do
-        end do
-    end subroutine qsort_vector
-
-    !> @brief Count occurrences in QVector
-    function qcount_vector(container, value) result(count)
-        type(QVector), intent(in) :: container
-        integer(int32), intent(in) :: value
-        integer :: count
-        type(QVectorIterator) :: iter
-
-        count = 0
-        iter = container%iterator()
-        do while (iter%has_next())
-            if (iter%value() == value) count = count + 1
-            call iter%next()
-        end do
-    end function qcount_vector
-
-    !> @brief Transform QVector elements (simplified - no function pointers in Fortran)
-    subroutine qtransform_vector(container, multiplier)
-        type(QVector), intent(inout) :: container
-        integer(int32), intent(in) :: multiplier
-        type(QVectorIterator) :: iter
-        integer :: i
-
-        call container%detach()
-        iter = container%iterator()
-        i = 1
-        do while (iter%has_next())
-            call container%set(i, iter%value() * multiplier)
-            call iter%next()
-            i = i + 1
-        end do
-    end subroutine qtransform_vector
-
-    ! ========== Thread-Safe Implementations ==========
-
-    subroutine qthreadsafevector_append(this, item)
-        class(QThreadSafeVector), intent(inout) :: this
-        integer(int32), intent(in) :: item
-        ! In real implementation: lock mutex
-        call this%vector%append(item)
-        ! unlock mutex
-    end subroutine qthreadsafevector_append
-
-    function qthreadsafevector_at(this, index) result(item)
-        class(QThreadSafeVector), intent(in) :: this
-        integer, intent(in) :: index
-        integer(int32) :: item
-        ! In real implementation: lock mutex
-        item = this%vector%at(index)
-        ! unlock mutex
-    end function qthreadsafevector_at
-
-    function qthreadsafevector_size(this) result(size_val)
-        class(QThreadSafeVector), intent(in) :: this
-        integer :: size_val
-        ! In real implementation: lock mutex
-        size_val = this%vector%size()
-        ! unlock mutex
-    end function qthreadsafevector_size
-
-    subroutine qthreadsafehash_insert(this, key, value)
-        class(QThreadSafeHash), intent(inout) :: this
-        character(len=*), intent(in) :: key
-        integer(int32), intent(in) :: value
-        ! In real implementation: lock mutex
-        call this%hash%insert(key, value)
-        ! unlock mutex
-    end subroutine qthreadsafehash_insert
-
-    function qthreadsafehash_get(this, key, found) result(value)
-        class(QThreadSafeHash), intent(in) :: this
-        character(len=*), intent(in) :: key
-        logical, intent(out), optional :: found
-        integer(int32) :: value
-        ! In real implementation: lock mutex
-        value = this%hash%get(key, found)
-        ! unlock mutex
-    end function qthreadsafehash_get
-
-    function qthreadsafehash_size(this) result(size_val)
-        class(QThreadSafeHash), intent(in) :: this
-        integer :: size_val
-        ! In real implementation: lock mutex
-        size_val = this%hash%size()
-        ! unlock mutex
-    end function qthreadsafehash_size
-
-    ! ========== Additional Utility Functions ==========
-
-    !> @brief Create QVector from array
-    function qvector_from_array(arr) result(vec)
-        integer(int32), intent(in) :: arr(:)
-        type(QVector) :: vec
-        integer :: i
-
-        call vec%init()
-        do i = 1, size(arr)
-            call vec%append(arr(i))
-        end do
-    end function qvector_from_array
-
-    !> @brief Convert QVector to array
-    function qvector_to_array(vec) result(arr)
-        type(QVector), intent(in) :: vec
-        integer(int32), allocatable :: arr(:)
-        integer :: i
-
-        allocate(arr(vec%size()))
-        do i = 1, vec%size()
-            arr(i) = vec%at(i)
-        end do
-    end function qvector_to_array
-
-    !> @brief Create QSet from array
-    function qset_from_array(arr) result(set)
-        integer(int32), intent(in) :: arr(:)
-        type(QSet) :: set
-        integer :: i
-
-        call set%init()
-        do i = 1, size(arr)
-            call set%insert(arr(i))
-        end do
-    end function qset_from_array
-
-    !> @brief Check if two QVectors are equal
-    function qvector_equals(a, b) result(equal)
-        type(QVector), intent(in) :: a, b
-        logical :: equal
-        integer :: i
-
-        equal = .false.
-        if (a%size() /= b%size()) return
-
-        do i = 1, a%size()
-            if (a%at(i) /= b%at(i)) return
-        end do
-        equal = .true.
-    end function qvector_equals
-
-    !> @brief Check if two QSets are equal
-    function qset_equals(a, b) result(equal)
-        type(QSet), intent(in) :: a, b
-        logical :: equal
-        type(QSetIterator) :: iter
-
-        equal = .false.
-        if (a%size() /= b%size()) return
-
-        iter = a%iterator()
-        do while (iter%has_next())
-            if (.not. b%contains(iter%value())) return
-            call iter%next()
-        end do
-        equal = .true.
-    end function qset_equals
 
 end module forge_containers
         class(QSet), intent(in) :: this
@@ -1517,6 +1303,7 @@ end module forge_containers
             call iter%next()
         end do
     end subroutine qset_subtract
+
 
     subroutine qset_finalize(this)
         class(QSet), intent(inout) :: this

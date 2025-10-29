@@ -9,12 +9,17 @@ module forge_socket
     use forge_types
     use forge_errors
     use forge_signals
+    use forge_socket_platform
     implicit none
     private
 
-    public :: QTcpSocket, QUdpSocket, QHostAddress
+    public :: QTcpSocket, QUdpSocket, QHostAddress, NetworkInterface
     public :: SocketState, UnconnectedState, ConnectingState, ConnectedState
     public :: BoundState, ClosingState, ListeningState
+    public :: enumerate_interfaces, get_interface_info
+    public :: set_ipv6_only, get_ipv6_only, set_dual_stack
+    public :: set_ipv6_scope_id, set_ipv6_flow_info, set_ipv6_traffic_class
+    public :: get_ipv6_scope_id, get_ipv6_flow_info, get_ipv6_traffic_class
 
     !> Socket states
     integer, parameter :: UnconnectedState = 0
@@ -35,6 +40,9 @@ module forge_socket
         character(len=45) :: address = ""  ! IPv4 or IPv6
         integer :: port = 0
         logical :: is_ipv6 = .false.
+        integer :: scope_id = 0  ! IPv6 scope ID
+        integer :: flow_info = 0  ! IPv6 flow info
+        integer :: traffic_class = 0  ! IPv6 traffic class
     contains
         procedure :: set_address => hostaddress_set
         procedure :: get_address => hostaddress_get
@@ -43,6 +51,16 @@ module forge_socket
         procedure :: resolve => hostaddress_resolve
         procedure :: is_ipv6_addr => hostaddress_is_ipv6
         procedure :: to_string => hostaddress_to_string
+        procedure :: parse_address => hostaddress_parse
+        procedure :: is_valid => hostaddress_is_valid
+        procedure :: set_scope_id => hostaddress_set_scope_id
+        procedure :: get_scope_id => hostaddress_get_scope_id
+        procedure :: set_flow_info => hostaddress_set_flow_info
+        procedure :: get_flow_info => hostaddress_get_flow_info
+        procedure :: set_traffic_class => hostaddress_set_traffic_class
+        procedure :: get_traffic_class => hostaddress_get_traffic_class
+        procedure :: clear => hostaddress_clear
+        procedure :: is_null => hostaddress_is_null
     end type QHostAddress
 
     !> @brief TCP socket with full server/client support
@@ -56,6 +74,7 @@ module forge_socket
         integer :: buffer_size = 0
         logical :: winsock_initialized = .false.
         logical :: is_server_socket = .false.
+        logical :: dual_stack_enabled = .true.  ! Enable IPv4/IPv6 dual-stack by default
         integer :: error_code = 0
         character(len=256) :: error_string = ""
         type(signal_void) :: connected
@@ -86,6 +105,8 @@ module forge_socket
         procedure :: listen => tcpsocket_listen
         procedure :: accept => tcpsocket_accept
         procedure :: set_nonblocking => tcpsocket_set_nonblocking
+        procedure :: set_dual_stack => tcpsocket_set_dual_stack
+        procedure :: is_dual_stack => tcpsocket_is_dual_stack
     end type QTcpSocket
 
     !> @brief UDP socket with multicast support
@@ -94,6 +115,7 @@ module forge_socket
         type(c_ptr) :: socket_handle = c_null_ptr
         type(SocketState) :: state
         logical :: winsock_initialized = .false.
+        logical :: dual_stack_enabled = .true.  ! Enable IPv4/IPv6 dual-stack by default
         type(QHostAddress) :: bound_address
         integer :: error_code = 0
         character(len=256) :: error_string = ""
@@ -116,6 +138,8 @@ module forge_socket
         procedure :: get_error_string => udpsocket_error_string
         procedure :: bound_addr => udpsocket_bound_address
         procedure :: set_nonblocking => udpsocket_set_nonblocking
+        procedure :: set_dual_stack => udpsocket_set_dual_stack
+        procedure :: is_dual_stack => udpsocket_is_dual_stack
     end type QUdpSocket
 
 contains
@@ -150,7 +174,6 @@ contains
     end function hostaddress_get_port
 
     subroutine hostaddress_resolve(this, hostname)
-        use forge_winsock
         class(QHostAddress), intent(inout) :: this
         character(len=*), intent(in) :: hostname
         character(len=256) :: resolved_ip
@@ -167,6 +190,78 @@ contains
         end if
     end subroutine hostaddress_resolve
 
+    !> @brief Resolve hostname to IPv6 address specifically
+    subroutine hostaddress_resolve_ipv6(this, hostname)
+        class(QHostAddress), intent(inout) :: this
+        character(len=*), intent(in) :: hostname
+        character(len=256) :: resolved_ip
+        logical :: success
+
+        success = resolve_hostname_ipv6(hostname, this%port, resolved_ip)
+        if (success) then
+            this%address = trim(resolved_ip)
+            this%is_ipv6 = .true.
+        else
+            this%address = ""
+            this%is_ipv6 = .false.
+        end if
+    end subroutine hostaddress_resolve_ipv6
+
+    !> @brief Resolve hostname to IPv4 address specifically
+    subroutine hostaddress_resolve_ipv4(this, hostname)
+        class(QHostAddress), intent(inout) :: this
+        character(len=*), intent(in) :: hostname
+        character(len=256) :: resolved_ip
+        logical :: success
+
+        success = resolve_hostname_ipv4(hostname, this%port, resolved_ip)
+        if (success) then
+            this%address = trim(resolved_ip)
+            this%is_ipv6 = .false.
+        else
+            this%address = ""
+            this%is_ipv6 = .false.
+        end if
+    end subroutine hostaddress_resolve_ipv4
+
+    !> @brief Resolve hostname to IPv4 and IPv6 addresses
+    subroutine hostaddress_resolve_dual(this, hostname, ipv4_addr, ipv6_addr)
+        use forge_winsock
+        class(QHostAddress), intent(inout) :: this
+        character(len=*), intent(in) :: hostname
+        type(QHostAddress), intent(out), optional :: ipv4_addr, ipv6_addr
+        character(len=256) :: ipv4_ip, ipv6_ip
+        logical :: ipv4_success, ipv6_success
+
+        ! Try IPv4 resolution
+        ipv4_success = resolve_hostname_ipv4(hostname, this%port, ipv4_ip)
+        if (ipv4_success .and. present(ipv4_addr)) then
+            ipv4_addr%address = trim(ipv4_ip)
+            ipv4_addr%port = this%port
+            ipv4_addr%is_ipv6 = .false.
+        end if
+
+        ! Try IPv6 resolution
+        ipv6_success = resolve_hostname_ipv6(hostname, this%port, ipv6_ip)
+        if (ipv6_success .and. present(ipv6_addr)) then
+            ipv6_addr%address = trim(ipv6_ip)
+            ipv6_addr%port = this%port
+            ipv6_addr%is_ipv6 = .true.
+        end if
+
+        ! Set this to first successful resolution (prefer IPv4 for compatibility)
+        if (ipv4_success) then
+            this%address = trim(ipv4_ip)
+            this%is_ipv6 = .false.
+        else if (ipv6_success) then
+            this%address = trim(ipv6_ip)
+            this%is_ipv6 = .true.
+        else
+            this%address = ""
+            this%is_ipv6 = .false.
+        end if
+    end subroutine hostaddress_resolve_dual
+
     function hostaddress_is_ipv6(this) result(is_ipv6)
         class(QHostAddress), intent(in) :: this
         logical :: is_ipv6
@@ -182,6 +277,202 @@ contains
         end if
     end function hostaddress_to_string
 
+    subroutine hostaddress_parse(this, address_string)
+        class(QHostAddress), intent(inout) :: this
+        character(len=*), intent(in) :: address_string
+        integer :: colon_pos, percent_pos, bracket_start, bracket_end
+        character(len=:), allocatable :: addr_part, port_part, scope_part
+
+        ! Clear current state
+        call this%clear()
+
+        ! Check for IPv6 in brackets [addr]:port or addr%scope
+        bracket_start = index(address_string, '[')
+        bracket_end = index(address_string, ']')
+
+        if (bracket_start > 0 .and. bracket_end > bracket_start) then
+            ! IPv6 with brackets: [addr]:port or [addr%scope]:port
+            addr_part = address_string(bracket_start+1:bracket_end-1)
+
+            ! Check for port after brackets
+            if (bracket_end < len(address_string) .and. address_string(bracket_end+1:bracket_end+1) == ':') then
+                port_part = address_string(bracket_end+2:)
+                read(port_part, *, iostat=ios) this%port
+            end if
+        else
+            ! IPv4 or bare IPv6
+            colon_pos = index(address_string, ':', back=.true.)
+            percent_pos = index(address_string, '%')
+
+            if (colon_pos > 0) then
+                if (percent_pos > 0 .and. percent_pos > colon_pos) then
+                    ! IPv6 with scope: addr%scope
+                    addr_part = address_string(1:percent_pos-1)
+                    scope_part = address_string(percent_pos+1:)
+                    read(scope_part, *, iostat=ios) this%scope_id
+                else
+                    ! Could be IPv6 or IPv4:port
+                    addr_part = address_string(1:colon_pos-1)
+                    port_part = address_string(colon_pos+1:)
+                    read(port_part, *, iostat=ios) this%port
+
+                    ! Check if addr_part contains ':' (IPv6)
+                    if (index(addr_part, ':') > 0) then
+                        this%is_ipv6 = .true.
+                    end if
+                end if
+            else
+                ! No colon, just address
+                addr_part = trim(address_string)
+                if (index(addr_part, ':') > 0) then
+                    this%is_ipv6 = .true.
+                end if
+            end if
+        end if
+
+        ! Set the address
+        this%address = trim(addr_part)
+        this%is_ipv6 = (index(this%address, ':') > 0)
+    end subroutine hostaddress_parse
+
+    function hostaddress_is_valid(this) result(valid)
+        class(QHostAddress), intent(in) :: this
+        logical :: valid
+
+        if (len_trim(this%address) == 0) then
+            valid = .false.
+            return
+        end if
+
+        if (this%is_ipv6) then
+            valid = is_valid_ipv6(this%address)
+        else
+            valid = is_valid_ipv4(this%address)
+        end if
+    end function hostaddress_is_valid
+
+    function is_valid_ipv4(address) result(valid)
+        character(len=*), intent(in) :: address
+        logical :: valid
+        integer :: dot_count, i, num
+        character(len=1) :: c
+
+        valid = .false.
+        dot_count = 0
+
+        do i = 1, len_trim(address)
+            c = address(i:i)
+            if (c == '.') then
+                dot_count = dot_count + 1
+                if (dot_count > 3) return
+            else if (.not. is_digit(c)) then
+                return
+            end if
+        end do
+
+        if (dot_count /= 3) return
+
+        ! Parse each octet
+        read(address, *, iostat=ios) num
+        if (ios /= 0 .or. num < 0 .or. num > 255) return
+
+        valid = .true.
+    end function is_valid_ipv4
+
+    function is_valid_ipv6(address) result(valid)
+        character(len=*), intent(in) :: address
+        logical :: valid
+        integer :: colon_count, double_colon_count, i
+        character(len=1) :: c
+
+        valid = .false.
+        colon_count = 0
+        double_colon_count = 0
+
+        do i = 1, len_trim(address)
+            c = address(i:i)
+            if (c == ':') then
+                colon_count = colon_count + 1
+                if (i < len_trim(address) .and. address(i+1:i+1) == ':') then
+                    double_colon_count = double_colon_count + 1
+                    if (double_colon_count > 1) return
+                end if
+            else if (.not. is_hex_digit(c)) then
+                return
+            end if
+        end do
+
+        ! IPv6 should have 7 or 8 colons, or fewer with ::
+        if (colon_count < 2 .or. colon_count > 7) return
+        if (double_colon_count > 1) return
+
+        valid = .true.
+    end function is_valid_ipv6
+
+    function is_digit(c) result(digit)
+        character(len=1), intent(in) :: c
+        logical :: digit
+        digit = (c >= '0' .and. c <= '9')
+    end function is_digit
+
+    function is_hex_digit(c) result(hex_digit)
+        character(len=1), intent(in) :: c
+        logical :: hex_digit
+        hex_digit = is_digit(c) .or. (c >= 'a' .and. c <= 'f') .or. (c >= 'A' .and. c <= 'F')
+    end function is_hex_digit
+
+    subroutine hostaddress_set_scope_id(this, scope_id)
+        class(QHostAddress), intent(inout) :: this
+        integer, intent(in) :: scope_id
+        this%scope_id = scope_id
+    end subroutine hostaddress_set_scope_id
+
+    function hostaddress_get_scope_id(this) result(scope_id)
+        class(QHostAddress), intent(in) :: this
+        integer :: scope_id
+        scope_id = this%scope_id
+    end function hostaddress_get_scope_id
+
+    subroutine hostaddress_set_flow_info(this, flow_info)
+        class(QHostAddress), intent(inout) :: this
+        integer, intent(in) :: flow_info
+        this%flow_info = flow_info
+    end subroutine hostaddress_set_flow_info
+
+    function hostaddress_get_flow_info(this) result(flow_info)
+        class(QHostAddress), intent(in) :: this
+        integer :: flow_info
+        flow_info = this%flow_info
+    end function hostaddress_get_flow_info
+
+    subroutine hostaddress_set_traffic_class(this, traffic_class)
+        class(QHostAddress), intent(inout) :: this
+        integer, intent(in) :: traffic_class
+        this%traffic_class = traffic_class
+    end subroutine hostaddress_set_traffic_class
+
+    function hostaddress_get_traffic_class(this) result(traffic_class)
+        class(QHostAddress), intent(in) :: this
+        integer :: traffic_class
+        traffic_class = this%traffic_class
+    end function hostaddress_get_traffic_class
+
+    subroutine hostaddress_clear(this)
+        class(QHostAddress), intent(inout) :: this
+        this%address = ""
+        this%port = 0
+        this%is_ipv6 = .false.
+        this%scope_id = 0
+        this%flow_info = 0
+        this%traffic_class = 0
+    end subroutine hostaddress_clear
+
+    function hostaddress_is_null(this) result(is_null)
+        class(QHostAddress), intent(in) :: this
+        logical :: is_null
+        is_null = (len_trim(this%address) == 0)
+    end function hostaddress_is_null
+
     function int_to_string(i) result(str)
         integer, intent(in) :: i
         character(len=20) :: str
@@ -192,35 +483,34 @@ contains
     ! ========== QTcpSocket Implementation ==========
 
     subroutine tcpsocket_connect(this, host, port)
-        use forge_winsock
         class(QTcpSocket), intent(inout) :: this
         character(len=*), intent(in) :: host
         integer, intent(in) :: port
         logical :: success
-        
-        ! Initialize Winsock if not already done
+
+        ! Initialize socket subsystem if not already done
         if (.not. this%winsock_initialized) then
-            success = winsock_init()
+            success = socket_init()
             if (.not. success) then
                 this%state%value = UnconnectedState
                 return
             end if
             this%winsock_initialized = .true.
         end if
-        
-        ! Create socket
-        this%socket_handle = create_tcp_socket()
+
+        ! Create dual-stack socket for IPv4/IPv6 support
+        this%socket_handle = create_dual_socket(IPPROTO_TCP)
         if (.not. c_associated(this%socket_handle)) then
             this%state%value = UnconnectedState
             return
         end if
-        
+
         this%state%value = ConnectingState
         call this%peer_address%set(host, port)
-        
-        ! Connect to host
+
+        ! Connect to host (supports both IPv4 and IPv6)
         success = socket_connect(this%socket_handle, host, port)
-        
+
         if (success) then
             this%state%value = ConnectedState
             call this%connected%emit()
@@ -453,7 +743,6 @@ contains
     end function tcpsocket_error_string
 
     subroutine tcpsocket_listen(this, port, backlog)
-        use forge_winsock
         class(QTcpSocket), intent(inout) :: this
         integer, intent(in) :: port
         integer, intent(in), optional :: backlog
@@ -463,9 +752,19 @@ contains
         max_conn = 5
         if (present(backlog)) max_conn = backlog
 
-        call this%init_winsock()
+        ! Initialize socket subsystem
+        if (.not. this%winsock_initialized) then
+            success = socket_init()
+            if (.not. success) then
+                this%error_code = -7
+                this%error_string = "Failed to initialize socket subsystem"
+                return
+            end if
+            this%winsock_initialized = .true.
+        end if
 
-        this%socket_handle = create_tcp_socket()
+        ! Create dual-stack socket for IPv4/IPv6 support
+        this%socket_handle = create_dual_socket(IPPROTO_TCP)
         if (.not. c_associated(this%socket_handle)) then
             this%error_code = -1
             this%error_string = "Failed to create listening socket"
@@ -541,20 +840,37 @@ contains
     end subroutine tcpsocket_set_nonblocking
 
     subroutine init_winsock(this)
-        use forge_winsock
         class(QTcpSocket), intent(inout) :: this
         logical :: success
 
         if (.not. this%winsock_initialized) then
-            success = winsock_init()
+            success = socket_init()
             if (.not. success) then
                 this%error_code = -7
-                this%error_string = "Failed to initialize Winsock"
+                this%error_string = "Failed to initialize socket subsystem"
             else
                 this%winsock_initialized = .true.
             end if
         end if
     end subroutine init_winsock
+
+    subroutine tcpsocket_set_dual_stack(this, dual_stack)
+        class(QTcpSocket), intent(inout) :: this
+        logical, intent(in) :: dual_stack
+
+        this%dual_stack_enabled = dual_stack
+
+        ! Apply to existing socket if connected
+        if (c_associated(this%socket_handle)) then
+            call set_dual_stack(this%socket_handle, dual_stack)
+        end if
+    end subroutine tcpsocket_set_dual_stack
+
+    function tcpsocket_is_dual_stack(this) result(dual_stack)
+        class(QTcpSocket), intent(in) :: this
+        logical :: dual_stack
+        dual_stack = this%dual_stack_enabled
+    end function tcpsocket_is_dual_stack
 
     ! ========== QUdpSocket Implementation ==========
 
@@ -572,26 +888,27 @@ contains
     end subroutine udpsocket_init
 
     subroutine udpsocket_bind(this, port, mode)
-        use forge_winsock
         class(QUdpSocket), intent(inout) :: this
         integer, intent(in) :: port
         integer, intent(in), optional :: mode
         logical :: success
-        
+
         call this%init_socket()
-        
-        ! Create UDP socket
-        this%socket_handle = create_udp_socket()
+
+        ! Create dual-stack UDP socket for IPv4/IPv6 support
+        this%socket_handle = create_dual_socket(IPPROTO_UDP)
         if (.not. c_associated(this%socket_handle)) then
             this%state%value = UnconnectedState
             return
         end if
-        
-        ! Bind to port
+
+        ! Bind to port (supports both IPv4 and IPv6)
         success = socket_bind(this%socket_handle, port)
-        
+
         if (success) then
             this%state%value = BoundState
+            call this%bound_address%set("", port)
+            call this%state_changed%emit()
         else
             call socket_close(this%socket_handle)
             this%socket_handle = c_null_ptr
@@ -600,24 +917,23 @@ contains
     end subroutine udpsocket_bind
 
     function udpsocket_write_datagram(this, data, host, port) result(bytes_written)
-        use forge_winsock
         class(QUdpSocket), intent(inout) :: this
         character(len=*), intent(in) :: data
         character(len=*), intent(in) :: host
         integer, intent(in) :: port
         integer :: bytes_written
-        
+
         call this%init_socket()
-        
+
         ! Create socket if not already created
         if (.not. c_associated(this%socket_handle)) then
-            this%socket_handle = create_udp_socket()
+            this%socket_handle = create_dual_socket(IPPROTO_UDP)
             if (.not. c_associated(this%socket_handle)) then
                 bytes_written = -1
                 return
             end if
         end if
-        
+
         bytes_written = socket_sendto(this%socket_handle, data, len(data), host, port)
     end function udpsocket_write_datagram
 
@@ -748,7 +1064,6 @@ contains
     end function udpsocket_bound_address
 
     subroutine udpsocket_set_nonblocking(this, nonblocking)
-        use forge_winsock
         class(QUdpSocket), intent(inout) :: this
         logical, intent(in) :: nonblocking
         logical :: success
@@ -762,6 +1077,120 @@ contains
             end if
         end if
     end subroutine udpsocket_set_nonblocking
+
+    subroutine udpsocket_set_dual_stack(this, dual_stack)
+        class(QUdpSocket), intent(inout) :: this
+        logical, intent(in) :: dual_stack
+
+        this%dual_stack_enabled = dual_stack
+
+        ! Apply to existing socket if bound
+        if (c_associated(this%socket_handle)) then
+            call set_dual_stack(this%socket_handle, dual_stack)
+        end if
+    end subroutine udpsocket_set_dual_stack
+
+    function udpsocket_is_dual_stack(this) result(dual_stack)
+        class(QUdpSocket), intent(in) :: this
+        logical :: dual_stack
+        dual_stack = this%dual_stack_enabled
+    end function udpsocket_is_dual_stack
+
+! ========== Network Interface Support ==========
+
+!> @brief Network interface information structure
+type :: NetworkInterface
+    character(len=256) :: name = ""
+    character(len=45) :: address = ""
+    character(len=45) :: netmask = ""
+    character(len=45) :: broadcast = ""
+    integer :: index = 0
+    logical :: is_up = .false.
+    logical :: is_ipv6 = .false.
+end type NetworkInterface
+
+!> @brief Enumerate all available network interfaces
+function enumerate_interfaces() result(interfaces)
+    type(NetworkInterface), allocatable :: interfaces(:)
+    interfaces = enumerate_interfaces()
+end function enumerate_interfaces
+
+!> @brief Get information about a specific network interface
+function get_interface_info(if_index) result(iface)
+    integer, intent(in) :: if_index
+    type(NetworkInterface) :: iface
+    iface = get_interface_info(if_index)
+end function get_interface_info
+
+! ========== IPv6 Socket Options ==========
+
+!> @brief Set IPv6-only socket option
+function set_ipv6_only(sock, ipv6_only) result(success)
+    type(c_ptr), intent(in) :: sock
+    logical, intent(in) :: ipv6_only
+    logical :: success
+    success = set_ipv6_only(sock, ipv6_only)
+end function set_ipv6_only
+
+!> @brief Get IPv6-only socket option
+function get_ipv6_only(sock) result(ipv6_only)
+    type(c_ptr), intent(in) :: sock
+    logical :: ipv6_only
+    ipv6_only = get_ipv6_only(sock)
+end function get_ipv6_only
+
+!> @brief Set dual-stack socket option (IPv4/IPv6)
+function set_dual_stack(sock, dual_stack) result(success)
+    type(c_ptr), intent(in) :: sock
+    logical, intent(in) :: dual_stack
+    logical :: success
+    success = set_dual_stack(sock, dual_stack)
+end function set_dual_stack
+
+!> @brief Set IPv6 scope ID
+function set_ipv6_scope_id(sock, scope_id) result(success)
+    type(c_ptr), intent(in) :: sock
+    integer, intent(in) :: scope_id
+    logical :: success
+    success = set_ipv6_scope_id(sock, scope_id)
+end function set_ipv6_scope_id
+
+!> @brief Get IPv6 scope ID
+function get_ipv6_scope_id(sock) result(scope_id)
+    type(c_ptr), intent(in) :: sock
+    integer :: scope_id
+    scope_id = get_ipv6_scope_id(sock)
+end function get_ipv6_scope_id
+
+!> @brief Set IPv6 flow info
+function set_ipv6_flow_info(sock, flow_info) result(success)
+    type(c_ptr), intent(in) :: sock
+    integer, intent(in) :: flow_info
+    logical :: success
+    success = set_ipv6_flow_info(sock, flow_info)
+end function set_ipv6_flow_info
+
+!> @brief Get IPv6 flow info
+function get_ipv6_flow_info(sock) result(flow_info)
+    type(c_ptr), intent(in) :: sock
+    integer :: flow_info
+    flow_info = get_ipv6_flow_info(sock)
+end function get_ipv6_flow_info
+
+!> @brief Set IPv6 traffic class
+function set_ipv6_traffic_class(sock, traffic_class) result(success)
+    type(c_ptr), intent(in) :: sock
+    integer, intent(in) :: traffic_class
+    logical :: success
+    success = set_ipv6_traffic_class(sock, traffic_class)
+end function set_ipv6_traffic_class
+
+!> @brief Get IPv6 traffic class
+function get_ipv6_traffic_class(sock) result(traffic_class)
+    type(c_ptr), intent(in) :: sock
+    integer :: traffic_class
+    traffic_class = get_ipv6_traffic_class(sock)
+end function get_ipv6_traffic_class
 
 end module forge_socket
 

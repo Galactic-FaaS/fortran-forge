@@ -1,16 +1,16 @@
-!> @brief Complete Winsock2 implementation for Windows
-!> @details Full TCP/UDP socket support via Windows Sockets API
+!> @brief POSIX socket implementation for Linux/macOS
+!> @details Full TCP/UDP socket support via POSIX socket API
 !> @author ForGE Contributors
 !> @date 2025
 !> @license GPL-3.0-or-later
 
-module forge_winsock
+module forge_posix_socket
     use iso_c_binding
     use forge_errors
     implicit none
     private
 
-    public :: winsock_init, winsock_cleanup
+    public :: posix_init, posix_cleanup
     public :: create_tcp_socket, create_udp_socket, create_dual_socket
     public :: socket_connect, socket_bind, socket_listen, socket_accept
     public :: socket_send, socket_recv, socket_sendto, socket_recvfrom
@@ -27,27 +27,16 @@ module forge_winsock
     type(c_ptr) :: SOCKET_TYPE
     type(c_ptr), parameter :: INVALID_SOCKET = c_null_ptr
 
-    !> Winsock constants
+    !> POSIX constants
     integer(c_int), parameter :: AF_INET = 2
-    integer(c_int), parameter :: AF_INET6 = 23
+    integer(c_int), parameter :: AF_INET6 = 10
     integer(c_int), parameter :: SOCK_STREAM = 1
     integer(c_int), parameter :: SOCK_DGRAM = 2
     integer(c_int), parameter :: IPPROTO_TCP = 6
     integer(c_int), parameter :: IPPROTO_UDP = 17
     integer(c_int), parameter :: IPPROTO_IP = 0
-    integer(c_int), parameter :: SOMAXCONN = 5
-    integer(c_int), parameter :: FIONBIO = int(z'8004667E', c_int)
-
-    !> WSAData structure for initialization
-    type, bind(C) :: WSAData
-        integer(c_short) :: wVersion
-        integer(c_short) :: wHighVersion
-        character(kind=c_char) :: szDescription(257)
-        character(kind=c_char) :: szSystemStatus(129)
-        integer(c_short) :: iMaxSockets
-        integer(c_short) :: iMaxUdpDg
-        type(c_ptr) :: lpVendorInfo
-    end type WSAData
+    integer(c_int), parameter :: SOMAXCONN = 128
+    integer(c_int), parameter :: FIONBIO = int(z'5421', c_int)
 
     !> sockaddr_in structure for IPv4
     type, bind(C) :: sockaddr_in
@@ -88,26 +77,8 @@ module forge_winsock
         type(c_ptr) :: ai_next
     end type addrinfo
 
-    !> Winsock2 API bindings
+    !> POSIX socket API bindings
     interface
-        
-        ! Initialize/cleanup
-        function WSAStartup(wVersionRequired, lpWSAData) bind(C, name="WSAStartup")
-            import :: c_short, WSAData, c_int
-            integer(c_short), value :: wVersionRequired
-            type(WSAData), intent(out) :: lpWSAData
-            integer(c_int) :: WSAStartup
-        end function WSAStartup
-
-        function WSACleanup() bind(C, name="WSACleanup")
-            import :: c_int
-            integer(c_int) :: WSACleanup
-        end function WSACleanup
-
-        function WSAGetLastError() bind(C, name="WSAGetLastError")
-            import :: c_int
-            integer(c_int) :: WSAGetLastError
-        end function WSAGetLastError
 
         ! Socket creation and management
         function socket(af, socket_type, protocol) bind(C, name="socket")
@@ -116,76 +87,76 @@ module forge_winsock
             type(c_ptr) :: socket
         end function socket
 
-        function closesocket(s) bind(C, name="closesocket")
+        function close(sock) bind(C, name="close")
             import :: c_ptr, c_int
-            type(c_ptr), value :: s
-            integer(c_int) :: closesocket
-        end function closesocket
+            type(c_ptr), value :: sock
+            integer(c_int) :: close
+        end function close
 
         ! Connection operations
-        function connect(s, name, namelen) bind(C, name="connect")
+        function connect(sock, name, namelen) bind(C, name="connect")
             import :: c_ptr, c_int
-            type(c_ptr), value :: s, name
+            type(c_ptr), value :: sock, name
             integer(c_int), value :: namelen
             integer(c_int) :: connect
         end function connect
 
-        function bind(s, name, namelen) bind(C, name="bind")
+        function bind(sock, name, namelen) bind(C, name="bind")
             import :: c_ptr, c_int
-            type(c_ptr), value :: s, name
+            type(c_ptr), value :: sock, name
             integer(c_int), value :: namelen
             integer(c_int) :: bind
         end function bind
 
-        function listen(s, backlog) bind(C, name="listen")
+        function listen(sock, backlog) bind(C, name="listen")
             import :: c_ptr, c_int
-            type(c_ptr), value :: s
+            type(c_ptr), value :: sock
             integer(c_int), value :: backlog
             integer(c_int) :: listen
         end function listen
 
-        function accept(s, addr, addrlen) bind(C, name="accept")
+        function accept(sock, addr, addrlen) bind(C, name="accept")
             import :: c_ptr
-            type(c_ptr), value :: s, addr, addrlen
+            type(c_ptr), value :: sock, addr, addrlen
             type(c_ptr) :: accept
         end function accept
 
         ! Data transfer
-        function send(s, buf, len, flags) bind(C, name="send")
+        function send(sock, buf, len, flags) bind(C, name="send")
             import :: c_ptr, c_int
-            type(c_ptr), value :: s, buf
+            type(c_ptr), value :: sock, buf
             integer(c_int), value :: len, flags
             integer(c_int) :: send
         end function send
 
-        function recv(s, buf, len, flags) bind(C, name="recv")
+        function recv(sock, buf, len, flags) bind(C, name="recv")
             import :: c_ptr, c_int
-            type(c_ptr), value :: s, buf
+            type(c_ptr), value :: sock, buf
             integer(c_int), value :: len, flags
             integer(c_int) :: recv
         end function recv
 
-        function sendto(s, buf, len, flags, to_addr, tolen) bind(C, name="sendto")
+        function sendto(sock, buf, len, flags, to_addr, tolen) bind(C, name="sendto")
             import :: c_ptr, c_int
-            type(c_ptr), value :: s, buf, to_addr
+            type(c_ptr), value :: sock, buf, to_addr
             integer(c_int), value :: len, flags, tolen
             integer(c_int) :: sendto
         end function sendto
 
-        function recvfrom(s, buf, len, flags, from_addr, fromlen) bind(C, name="recvfrom")
+        function recvfrom(sock, buf, len, flags, from_addr, fromlen) bind(C, name="recvfrom")
             import :: c_ptr, c_int
-            type(c_ptr), value :: s, buf, from_addr, fromlen
+            type(c_ptr), value :: sock, buf, from_addr, fromlen
             integer(c_int), value :: len, flags
             integer(c_int) :: recvfrom
         end function recvfrom
 
         ! Socket options
-        function ioctlsocket(s, cmd, argp) bind(C, name="ioctlsocket")
+        function fcntl(sock, cmd, arg) bind(C, name="fcntl")
             import :: c_ptr, c_int
-            type(c_ptr), value :: s, argp
-            integer(c_int), value :: cmd
-            integer(c_int) :: ioctlsocket
-        end function ioctlsocket
+            type(c_ptr), value :: sock
+            integer(c_int), value :: cmd, arg
+            integer(c_int) :: fcntl
+        end function fcntl
 
         ! Host/network conversion
         function htons(hostshort) bind(C, name="htons")
@@ -213,19 +184,6 @@ module forge_winsock
         end function ntohl
 
         ! Name resolution
-        function gethostbyname(name) bind(C, name="gethostbyname")
-            import :: c_ptr
-            type(c_ptr), value :: name
-            type(c_ptr) :: gethostbyname
-        end function gethostbyname
-
-        function inet_addr(cp) bind(C, name="inet_addr")
-            import :: c_ptr, c_int
-            type(c_ptr), value :: cp
-            integer(c_int) :: inet_addr
-        end function inet_addr
-
-        ! IPv6 and hostname resolution functions
         function getaddrinfo(pNodeName, pServiceName, pHints, ppResult) bind(C, name="getaddrinfo")
             import :: c_ptr, c_int
             type(c_ptr), value :: pNodeName, pServiceName, pHints, ppResult
@@ -260,17 +218,17 @@ module forge_winsock
             type(c_ptr) :: inet_ntop
         end function inet_ntop
 
-        ! Multicast functions
-        function setsockopt(s, level, optname, optval, optlen) bind(C, name="setsockopt")
+        ! Socket options
+        function setsockopt(sock, level, optname, optval, optlen) bind(C, name="setsockopt")
             import :: c_ptr, c_int
-            type(c_ptr), value :: s, optval
+            type(c_ptr), value :: sock, optval
             integer(c_int), value :: level, optname, optlen
             integer(c_int) :: setsockopt
         end function setsockopt
 
-        function getsockopt(s, level, optname, optval, optlen) bind(C, name="getsockopt")
+        function getsockopt(sock, level, optname, optval, optlen) bind(C, name="getsockopt")
             import :: c_ptr, c_int
-            type(c_ptr), value :: s, optval
+            type(c_ptr), value :: sock, optval
             integer(c_int), value :: level, optname, optlen
             integer(c_int) :: getsockopt
         end function getsockopt
@@ -279,42 +237,25 @@ module forge_winsock
 
 contains
 
-    !> @brief Initialize Winsock2
-    function winsock_init() result(success)
+    !> @brief Initialize POSIX sockets (no-op on Unix-like systems)
+    function posix_init() result(success)
         logical :: success
-        type(WSAData) :: wsa_data
-        integer(c_int) :: result
-        integer(c_short) :: version
-        
-        ! Request Winsock version 2.2
-        version = int(z'0202', c_short)  ! MAKEWORD(2,2)
-        
-        result = WSAStartup(version, wsa_data)
-        success = (result == 0)
-        
-        if (.not. success) then
-            write(*, '(A,I0)') "WSAStartup failed with error: ", result
-        end if
-    end function winsock_init
+        success = .true.
+    end function posix_init
 
-    !> @brief Cleanup Winsock2
-    subroutine winsock_cleanup()
-        integer(c_int) :: result
-        
-        result = WSACleanup()
-        if (result /= 0) then
-            write(*, '(A,I0)') "WSACleanup failed with error: ", WSAGetLastError()
-        end if
-    end subroutine winsock_cleanup
+    !> @brief Cleanup POSIX sockets (no-op on Unix-like systems)
+    subroutine posix_cleanup()
+        ! No cleanup needed on POSIX systems
+    end subroutine posix_cleanup
 
     !> @brief Create TCP socket
     function create_tcp_socket() result(sock)
         type(c_ptr) :: sock
-        
+
         sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)
-        
+
         if (.not. c_associated(sock)) then
-            write(*, '(A,I0)') "Failed to create TCP socket. Error: ", WSAGetLastError()
+            write(*, '(A,I0)') "Failed to create TCP socket. Error: ", errno()
         end if
     end function create_tcp_socket
 
@@ -325,7 +266,7 @@ contains
         sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
 
         if (.not. c_associated(sock)) then
-            write(*, '(A,I0)') "Failed to create UDP socket. Error: ", WSAGetLastError()
+            write(*, '(A,I0)') "Failed to create UDP socket. Error: ", errno()
         end if
     end function create_udp_socket
 
@@ -345,7 +286,7 @@ contains
             sock = socket(af, merge(SOCK_STREAM, SOCK_DGRAM, protocol == IPPROTO_TCP), protocol)
 
             if (.not. c_associated(sock)) then
-                write(*, '(A,I0)') "Failed to create dual-stack socket. Error: ", WSAGetLastError()
+                write(*, '(A,I0)') "Failed to create dual-stack socket. Error: ", errno()
             end if
         else
             ! Enable dual-stack on IPv6 socket
@@ -372,13 +313,13 @@ contains
         addr_int = inet_addr(c_loc(host_c))
         server_addr%sin_addr = addr_int
         server_addr%sin_zero = c_null_char
-        
+
         ! Connect
         result = connect(sock, c_loc(server_addr), int(sizeof(server_addr), c_int))
         success = (result == 0)
-        
+
         if (.not. success) then
-            write(*, '(A,I0)') "Connect failed. Error: ", WSAGetLastError()
+            write(*, '(A,I0)') "Connect failed. Error: ", errno()
         end if
     end function socket_connect
 
@@ -389,17 +330,17 @@ contains
         logical :: success
         type(sockaddr_in), target :: server_addr
         integer(c_int) :: result
-        
+
         server_addr%sin_family = AF_INET
         server_addr%sin_port = htons(int(port, c_short))
         server_addr%sin_addr = 0  ! INADDR_ANY
         server_addr%sin_zero = c_null_char
-        
+
         result = bind(sock, c_loc(server_addr), int(sizeof(server_addr), c_int))
         success = (result == 0)
-        
+
         if (.not. success) then
-            write(*, '(A,I0)') "Bind failed. Error: ", WSAGetLastError()
+            write(*, '(A,I0)') "Bind failed. Error: ", errno()
         end if
     end function socket_bind
 
@@ -409,15 +350,15 @@ contains
         integer, intent(in), optional :: backlog
         logical :: success
         integer(c_int) :: result, max_conn
-        
+
         max_conn = SOMAXCONN
         if (present(backlog)) max_conn = backlog
-        
+
         result = listen(sock, max_conn)
         success = (result == 0)
-        
+
         if (.not. success) then
-            write(*, '(A,I0)') "Listen failed. Error: ", WSAGetLastError()
+            write(*, '(A,I0)') "Listen failed. Error: ", errno()
         end if
     end function socket_listen
 
@@ -425,11 +366,11 @@ contains
     function socket_accept(sock) result(client_sock)
         type(c_ptr), intent(in) :: sock
         type(c_ptr) :: client_sock
-        
+
         client_sock = accept(sock, c_null_ptr, c_null_ptr)
-        
+
         if (.not. c_associated(client_sock)) then
-            write(*, '(A,I0)') "Accept failed. Error: ", WSAGetLastError()
+            write(*, '(A,I0)') "Accept failed. Error: ", errno()
         end if
     end function socket_accept
 
@@ -440,12 +381,12 @@ contains
         integer, intent(in) :: length
         integer :: bytes_sent
         integer(c_int) :: result
-        
+
         result = send(sock, c_loc(data), length, 0)
         bytes_sent = result
-        
+
         if (result < 0) then
-            write(*, '(A,I0)') "Send failed. Error: ", WSAGetLastError()
+            write(*, '(A,I0)') "Send failed. Error: ", errno()
             bytes_sent = -1
         end if
     end function socket_send
@@ -457,12 +398,12 @@ contains
         integer, intent(in) :: buffer_size
         integer :: bytes_received
         integer(c_int) :: result
-        
+
         result = recv(sock, c_loc(buffer), buffer_size, 0)
         bytes_received = result
-        
+
         if (result < 0) then
-            write(*, '(A,I0)') "Recv failed. Error: ", WSAGetLastError()
+            write(*, '(A,I0)') "Recv failed. Error: ", errno()
             bytes_received = -1
         else if (result == 0) then
             ! Connection closed
@@ -489,13 +430,13 @@ contains
         addr_int = inet_addr(c_loc(ip_c))
         dest_addr%sin_addr = addr_int
         dest_addr%sin_zero = c_null_char
-        
+
         result = sendto(sock, c_loc(data), length, 0, c_loc(dest_addr), &
                        int(sizeof(dest_addr), c_int))
         bytes_sent = result
-        
+
         if (result < 0) then
-            write(*, '(A,I0)') "Sendto failed. Error: ", WSAGetLastError()
+            write(*, '(A,I0)') "Sendto failed. Error: ", errno()
             bytes_sent = -1
         end if
     end function socket_sendto
@@ -511,15 +452,15 @@ contains
         type(sockaddr_in), target :: from_addr
         integer(c_int), target :: fromlen
         integer(c_int) :: result
-        
+
         fromlen = sizeof(from_addr)
-        
+
         result = recvfrom(sock, c_loc(buffer), buffer_size, 0, &
                          c_loc(from_addr), c_loc(fromlen))
         bytes_received = result
-        
+
         if (result < 0) then
-            write(*, '(A,I0)') "Recvfrom failed. Error: ", WSAGetLastError()
+            write(*, '(A,I0)') "Recvfrom failed. Error: ", errno()
             bytes_received = -1
         else
             if (present(source_port)) then
@@ -535,11 +476,11 @@ contains
     subroutine socket_close(sock)
         type(c_ptr), intent(in) :: sock
         integer(c_int) :: result
-        
+
         if (c_associated(sock)) then
-            result = closesocket(sock)
+            result = close(sock)
             if (result /= 0) then
-                write(*, '(A,I0)') "Close socket failed. Error: ", WSAGetLastError()
+                write(*, '(A,I0)') "Close socket failed. Error: ", errno()
             end if
         end if
     end subroutine socket_close
@@ -549,20 +490,28 @@ contains
         type(c_ptr), intent(in) :: sock
         logical, intent(in) :: nonblocking
         logical :: success
-        integer(c_int), target :: mode
-        integer(c_int) :: result
-        
-        if (nonblocking) then
-            mode = 1
-        else
-            mode = 0
+        integer(c_int) :: flags, result
+
+        ! Get current flags
+        flags = fcntl(sock, 3, 0)  ! F_GETFL
+        if (flags < 0) then
+            success = .false.
+            write(*, '(A,I0)') "fcntl F_GETFL failed. Error: ", errno()
+            return
         end if
-        
-        result = ioctlsocket(sock, FIONBIO, c_loc(mode))
+
+        ! Set or clear O_NONBLOCK flag
+        if (nonblocking) then
+            flags = ior(flags, 2048)  ! O_NONBLOCK
+        else
+            flags = iand(flags, not(2048))  ! Clear O_NONBLOCK
+        end if
+
+        result = fcntl(sock, 4, flags)  ! F_SETFL
         success = (result == 0)
-        
+
         if (.not. success) then
-            write(*, '(A,I0)') "ioctlsocket failed. Error: ", WSAGetLastError()
+            write(*, '(A,I0)') "fcntl F_SETFL failed. Error: ", errno()
         end if
     end function socket_set_nonblocking
 
@@ -723,9 +672,9 @@ contains
 
         level = IPPROTO_IP
         if (join) then
-            optname = 12  ! IP_ADD_MEMBERSHIP
+            optname = 35  ! IP_ADD_MEMBERSHIP
         else
-            optname = 13  ! IP_DROP_MEMBERSHIP
+            optname = 36  ! IP_DROP_MEMBERSHIP
         end if
 
         group_c = trim(group_addr) // c_null_char
@@ -738,7 +687,7 @@ contains
         success = (ret == 0)
 
         if (.not. success) then
-            write(*, '(A,I0)') "setsockopt multicast failed. Error: ", WSAGetLastError()
+            write(*, '(A,I0)') "setsockopt multicast failed. Error: ", errno()
         end if
     end function set_multicast_group
 
@@ -751,11 +700,11 @@ contains
         integer(c_int) :: ret
 
         opt_val = merge(1, 0, ipv6_only)
-        ret = setsockopt(sock, IPPROTO_IPV6, 27, c_loc(opt_val), int(sizeof(opt_val), c_int))  ! IPV6_V6ONLY
+        ret = setsockopt(sock, IPPROTO_IPV6, 26, c_loc(opt_val), int(sizeof(opt_val), c_int))  ! IPV6_V6ONLY
         success = (ret == 0)
 
         if (.not. success) then
-            write(*, '(A,I0)') "setsockopt IPV6_V6ONLY failed. Error: ", WSAGetLastError()
+            write(*, '(A,I0)') "setsockopt IPV6_V6ONLY failed. Error: ", errno()
         end if
     end function set_ipv6_only
 
@@ -768,12 +717,12 @@ contains
         integer(c_int) :: ret
 
         opt_len = sizeof(opt_val)
-        ret = getsockopt(sock, IPPROTO_IPV6, 27, c_loc(opt_val), c_loc(opt_len))  ! IPV6_V6ONLY
+        ret = getsockopt(sock, IPPROTO_IPV6, 26, c_loc(opt_val), c_loc(opt_len))  ! IPV6_V6ONLY
         if (ret == 0) then
             ipv6_only = (opt_val /= 0)
         else
             ipv6_only = .false.
-            write(*, '(A,I0)') "getsockopt IPV6_V6ONLY failed. Error: ", WSAGetLastError()
+            write(*, '(A,I0)') "getsockopt IPV6_V6ONLY failed. Error: ", errno()
         end if
     end function get_ipv6_only
 
@@ -796,11 +745,11 @@ contains
         integer(c_int) :: ret
 
         opt_val = scope_id
-        ret = setsockopt(sock, IPPROTO_IPV6, 14, c_loc(opt_val), int(sizeof(opt_val), c_int))  ! IPV6_UNICAST_IF
+        ret = setsockopt(sock, IPPROTO_IPV6, 17, c_loc(opt_val), int(sizeof(opt_val), c_int))  ! IPV6_UNICAST_IF
         success = (ret == 0)
 
         if (.not. success) then
-            write(*, '(A,I0)') "setsockopt IPV6_UNICAST_IF failed. Error: ", WSAGetLastError()
+            write(*, '(A,I0)') "setsockopt IPV6_UNICAST_IF failed. Error: ", errno()
         end if
     end function set_ipv6_scope_id
 
@@ -813,12 +762,12 @@ contains
         integer(c_int) :: ret
 
         opt_len = sizeof(opt_val)
-        ret = getsockopt(sock, IPPROTO_IPV6, 14, c_loc(opt_val), c_loc(opt_len))  ! IPV6_UNICAST_IF
+        ret = getsockopt(sock, IPPROTO_IPV6, 17, c_loc(opt_val), c_loc(opt_len))  ! IPV6_UNICAST_IF
         if (ret == 0) then
             scope_id = opt_val
         else
             scope_id = 0
-            write(*, '(A,I0)') "getsockopt IPV6_UNICAST_IF failed. Error: ", WSAGetLastError()
+            write(*, '(A,I0)') "getsockopt IPV6_UNICAST_IF failed. Error: ", errno()
         end if
     end function get_ipv6_scope_id
 
@@ -835,7 +784,7 @@ contains
         success = (ret == 0)
 
         if (.not. success) then
-            write(*, '(A,I0)') "setsockopt IPV6_FLOWINFO failed. Error: ", WSAGetLastError()
+            write(*, '(A,I0)') "setsockopt IPV6_FLOWINFO failed. Error: ", errno()
         end if
     end function set_ipv6_flow_info
 
@@ -853,7 +802,7 @@ contains
             flow_info = opt_val
         else
             flow_info = 0
-            write(*, '(A,I0)') "getsockopt IPV6_FLOWINFO failed. Error: ", WSAGetLastError()
+            write(*, '(A,I0)') "getsockopt IPV6_FLOWINFO failed. Error: ", errno()
         end if
     end function get_ipv6_flow_info
 
@@ -866,11 +815,11 @@ contains
         integer(c_int) :: ret
 
         opt_val = traffic_class
-        ret = setsockopt(sock, IPPROTO_IPV6, 39, c_loc(opt_val), int(sizeof(opt_val), c_int))  ! IPV6_TCLASS
+        ret = setsockopt(sock, IPPROTO_IPV6, 67, c_loc(opt_val), int(sizeof(opt_val), c_int))  ! IPV6_TCLASS
         success = (ret == 0)
 
         if (.not. success) then
-            write(*, '(A,I0)') "setsockopt IPV6_TCLASS failed. Error: ", WSAGetLastError()
+            write(*, '(A,I0)') "setsockopt IPV6_TCLASS failed. Error: ", errno()
         end if
     end function set_ipv6_traffic_class
 
@@ -883,12 +832,12 @@ contains
         integer(c_int) :: ret
 
         opt_len = sizeof(opt_val)
-        ret = getsockopt(sock, IPPROTO_IPV6, 39, c_loc(opt_val), c_loc(opt_len))  ! IPV6_TCLASS
+        ret = getsockopt(sock, IPPROTO_IPV6, 67, c_loc(opt_val), c_loc(opt_len))  ! IPV6_TCLASS
         if (ret == 0) then
             traffic_class = opt_val
         else
             traffic_class = 0
-            write(*, '(A,I0)') "getsockopt IPV6_TCLASS failed. Error: ", WSAGetLastError()
+            write(*, '(A,I0)') "getsockopt IPV6_TCLASS failed. Error: ", errno()
         end if
     end function get_ipv6_traffic_class
 
@@ -906,7 +855,7 @@ contains
     !> @brief Enumerate network interfaces
     function enumerate_interfaces() result(interfaces)
         type(NetworkInterface), allocatable :: interfaces(:)
-        ! Windows-specific interface enumeration would go here
+        ! POSIX-specific interface enumeration would go here
         ! For now, return empty array
         allocate(interfaces(0))
     end function enumerate_interfaces
@@ -915,9 +864,23 @@ contains
     function get_interface_info(if_index) result(iface)
         integer, intent(in) :: if_index
         type(NetworkInterface) :: iface
-        ! Windows-specific interface info retrieval would go here
+        ! POSIX-specific interface info retrieval would go here
         iface%index = if_index
     end function get_interface_info
 
-end module forge_winsock
+    !> @brief Get errno value
+    function errno() result(err)
+        integer :: err
+        interface
+            function c_errno() bind(C, name="__errno_location")
+                import :: c_ptr
+                type(c_ptr) :: c_errno
+            end function c_errno
+        end interface
+        integer, pointer :: errno_ptr
 
+        call c_f_pointer(c_errno(), errno_ptr)
+        err = errno_ptr
+    end function errno
+
+end module forge_posix_socket

@@ -70,6 +70,16 @@ module forge_types
         procedure :: set_vertical_policy => forge_size_policy_set_vertical
         procedure :: set_horizontal_stretch => forge_size_policy_set_horizontal_stretch
         procedure :: set_vertical_stretch => forge_size_policy_set_vertical_stretch
+        procedure :: calculate_horizontal_size => forge_size_policy_calculate_horizontal_size
+        procedure :: calculate_vertical_size => forge_size_policy_calculate_vertical_size
+        procedure :: has_horizontal_stretch => forge_size_policy_has_horizontal_stretch
+        procedure :: has_vertical_stretch => forge_size_policy_has_vertical_stretch
+        procedure :: get_horizontal_stretch_factor => forge_size_policy_get_horizontal_stretch_factor
+        procedure :: get_vertical_stretch_factor => forge_size_policy_get_vertical_stretch_factor
+        procedure :: is_horizontal_expanding => forge_size_policy_is_horizontal_expanding
+        procedure :: is_vertical_expanding => forge_size_policy_is_vertical_expanding
+        procedure :: is_horizontal_fixed => forge_size_policy_is_horizontal_fixed
+        procedure :: is_vertical_fixed => forge_size_policy_is_vertical_fixed
     end type forge_size_policy
 
 contains
@@ -202,6 +212,116 @@ contains
         integer, intent(in) :: stretch
         this%vertical_stretch = stretch
     end subroutine forge_size_policy_set_vertical_stretch
+
+    !> @brief Calculate horizontal size based on policy and available space
+    function forge_size_policy_calculate_horizontal_size(this, hint, min_size, max_size, available) result(size)
+        class(forge_size_policy), intent(in) :: this
+        integer(c_int), intent(in) :: hint, min_size, max_size, available
+        integer(c_int) :: size
+
+        select case (this%horizontal_policy)
+        case (0) ! Fixed
+            size = hint
+        case (1) ! Minimum
+            size = max(hint, min_size)
+        case (2) ! Maximum
+            size = min(hint, max_size)
+        case (3) ! Preferred
+            size = hint
+        case (4, 5) ! Expanding, MinimumExpanding
+            size = max(hint, available)
+        case (6) ! Ignored
+            size = available
+        case default
+            size = hint
+        end select
+
+        ! Apply constraints
+        size = max(min_size, min(max_size, size))
+    end function forge_size_policy_calculate_horizontal_size
+
+    !> @brief Calculate vertical size based on policy and available space
+    function forge_size_policy_calculate_vertical_size(this, hint, min_size, max_size, available) result(size)
+        class(forge_size_policy), intent(in) :: this
+        integer(c_int), intent(in) :: hint, min_size, max_size, available
+        integer(c_int) :: size
+
+        select case (this%vertical_policy)
+        case (0) ! Fixed
+            size = hint
+        case (1) ! Minimum
+            size = max(hint, min_size)
+        case (2) ! Maximum
+            size = min(hint, max_size)
+        case (3) ! Preferred
+            size = hint
+        case (4, 5) ! Expanding, MinimumExpanding
+            size = max(hint, available)
+        case (6) ! Ignored
+            size = available
+        case default
+            size = hint
+        end select
+
+        ! Apply constraints
+        size = max(min_size, min(max_size, size))
+    end function forge_size_policy_calculate_vertical_size
+
+    !> @brief Check if horizontal policy allows stretching
+    function forge_size_policy_has_horizontal_stretch(this) result(has_stretch)
+        class(forge_size_policy), intent(in) :: this
+        logical :: has_stretch
+        has_stretch = (this%horizontal_policy == 4 .or. this%horizontal_policy == 5) .and. this%horizontal_stretch > 0
+    end function forge_size_policy_has_horizontal_stretch
+
+    !> @brief Check if vertical policy allows stretching
+    function forge_size_policy_has_vertical_stretch(this) result(has_stretch)
+        class(forge_size_policy), intent(in) :: this
+        logical :: has_stretch
+        has_stretch = (this%vertical_policy == 4 .or. this%vertical_policy == 5) .and. this%vertical_stretch > 0
+    end function forge_size_policy_has_vertical_stretch
+
+    !> @brief Get horizontal stretch factor
+    function forge_size_policy_get_horizontal_stretch_factor(this) result(factor)
+        class(forge_size_policy), intent(in) :: this
+        integer :: factor
+        factor = max(1, this%horizontal_stretch)
+    end function forge_size_policy_get_horizontal_stretch_factor
+
+    !> @brief Get vertical stretch factor
+    function forge_size_policy_get_vertical_stretch_factor(this) result(factor)
+        class(forge_size_policy), intent(in) :: this
+        integer :: factor
+        factor = max(1, this%vertical_stretch)
+    end function forge_size_policy_get_vertical_stretch_factor
+
+    !> @brief Check if horizontal policy is expanding
+    function forge_size_policy_is_horizontal_expanding(this) result(expanding)
+        class(forge_size_policy), intent(in) :: this
+        logical :: expanding
+        expanding = this%horizontal_policy == 4 .or. this%horizontal_policy == 5
+    end function forge_size_policy_is_horizontal_expanding
+
+    !> @brief Check if vertical policy is expanding
+    function forge_size_policy_is_vertical_expanding(this) result(expanding)
+        class(forge_size_policy), intent(in) :: this
+        logical :: expanding
+        expanding = this%vertical_policy == 4 .or. this%vertical_policy == 5
+    end function forge_size_policy_is_vertical_expanding
+
+    !> @brief Check if horizontal policy is fixed
+    function forge_size_policy_is_horizontal_fixed(this) result(fixed)
+        class(forge_size_policy), intent(in) :: this
+        logical :: fixed
+        fixed = this%horizontal_policy == 0
+    end function forge_size_policy_is_horizontal_fixed
+
+    !> @brief Check if vertical policy is fixed
+    function forge_size_policy_is_vertical_fixed(this) result(fixed)
+        class(forge_size_policy), intent(in) :: this
+        logical :: fixed
+        fixed = this%vertical_policy == 0
+    end function forge_size_policy_is_vertical_fixed
 
 end module forge_types
 

@@ -27,6 +27,7 @@ module forge
     use forge_backend
     use forge_events
     use forge_window
+    use forge_rendering
     use forge_widgets
     use forge_layout
     use forge_custom_backend
@@ -66,6 +67,8 @@ module forge
     ! From forge_layout
     public :: forge_layout_base, forge_grid_layout, forge_box_layout, forge_stack_layout
     public :: LAYOUT_HORIZONTAL, LAYOUT_VERTICAL
+    public :: forge_qpen_t, forge_qbrush_t, forge_qpixmap_t, forge_qpainter_t
+    public :: forge_qfont_t, forge_qpath_t
 
     !> ForGE version
     character(len=*), parameter, public :: FORGE_VERSION = "1.0.0"

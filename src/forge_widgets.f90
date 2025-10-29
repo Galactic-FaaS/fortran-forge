@@ -29,6 +29,10 @@ module forge_widgets
     integer, parameter, public :: WIDGET_SPIN_BUTTON = 8
     integer, parameter, public :: WIDGET_COMBO_BOX = 9
     integer, parameter, public :: WIDGET_CHECK_BOX = 10
+    integer, parameter, public :: WIDGET_CALENDAR = 11
+    integer, parameter, public :: WIDGET_TREE = 12
+    integer, parameter, public :: WIDGET_TABLE = 13
+    integer, parameter, public :: WIDGET_GRAPHICS_VIEW = 14
 
     !> @brief Base widget class
     type, abstract :: forge_widget
@@ -43,6 +47,7 @@ module forge_widgets
         type(forge_size_policy) :: size_policy
         logical :: visible = .true.
         logical :: enabled = .true.
+        logical :: size_hint_valid = .false.
         class(forge_backend_base), pointer :: backend => null()
     contains
         procedure :: show => forge_widget_show
@@ -66,7 +71,18 @@ module forge_widgets
         procedure :: set_name => forge_widget_set_name
         procedure :: get_name => forge_widget_get_name
         procedure :: get_handle => forge_widget_get_handle
+        procedure :: invalidate_size_hint => forge_widget_invalidate_size_hint
+        procedure :: update_size_hint => forge_widget_update_size_hint
+        procedure(update_size_hint_interface), deferred :: calculate_size_hint
     end type forge_widget
+
+    !> Abstract interface for size hint calculation
+    abstract interface
+        subroutine update_size_hint_interface(this)
+            import :: forge_widget
+            class(forge_widget), intent(inout) :: this
+        end subroutine update_size_hint_interface
+    end interface
 
     !> @brief Button widget
     type, extends(forge_widget) :: forge_button
@@ -77,6 +93,7 @@ module forge_widgets
         procedure :: set_label => forge_button_set_label
         procedure :: get_label => forge_button_get_label
         procedure :: on_click => forge_button_on_click
+        procedure :: calculate_size_hint => forge_button_calculate_size_hint
     end type forge_button
 
     !> @brief Label widget
@@ -86,6 +103,7 @@ module forge_widgets
     contains
         procedure :: set_text => forge_label_set_text
         procedure :: get_text => forge_label_get_text
+        procedure :: calculate_size_hint => forge_label_calculate_size_hint
     end type forge_label
 
     !> @brief Entry (text input) widget
@@ -276,6 +294,7 @@ contains
         class(forge_widget), intent(inout) :: this
         integer(c_int), intent(in) :: width, height
         call this%size_hint%set(width, height)
+        this%size_hint_valid = .true.
     end subroutine forge_widget_set_size_hint
 
     subroutine forge_widget_set_size_policy(this, horizontal_policy, vertical_policy, horizontal_stretch, vertical_stretch)
@@ -315,6 +334,8 @@ contains
     function forge_widget_get_size_hint(this) result(size_hint)
         class(forge_widget), intent(in) :: this
         type(forge_size) :: size_hint
+        ! Ensure size hint is up to date
+        call this%update_size_hint()
         size_hint = this%size_hint
     end function forge_widget_get_size_hint
 
@@ -354,12 +375,26 @@ contains
         handle = this%handle
     end function forge_widget_get_handle
 
+    subroutine forge_widget_invalidate_size_hint(this)
+        class(forge_widget), intent(inout) :: this
+        this%size_hint_valid = .false.
+    end subroutine forge_widget_invalidate_size_hint
+
+    subroutine forge_widget_update_size_hint(this)
+        class(forge_widget), intent(inout) :: this
+        if (.not. this%size_hint_valid) then
+            call this%calculate_size_hint()
+            this%size_hint_valid = .true.
+        end if
+    end subroutine forge_widget_update_size_hint
+
     ! ========== Button Methods ==========
 
     subroutine forge_button_set_label(this, label)
         class(forge_button), intent(inout) :: this
         character(len=*), intent(in) :: label
         call this%label%set(label)
+        call this%invalidate_size_hint()
     end subroutine forge_button_set_label
 
     function forge_button_get_label(this) result(label)
@@ -374,12 +409,26 @@ contains
         call this%click_handler%set_callback(callback, EVENT_BUTTON_CLICKED)
     end subroutine forge_button_on_click
 
+    subroutine forge_button_calculate_size_hint(this)
+        class(forge_button), intent(inout) :: this
+        integer :: text_width, text_height
+        character(len=:), allocatable :: text
+
+        text = this%get_label()
+        text_width = len(text) * 8  ! Approximate character width
+        text_height = 16  ! Approximate character height
+
+        ! Add padding for button appearance
+        call this%set_size_hint(text_width + 20, text_height + 10)
+    end subroutine forge_button_calculate_size_hint
+
     ! ========== Label Methods ==========
 
     subroutine forge_label_set_text(this, text)
         class(forge_label), intent(inout) :: this
         character(len=*), intent(in) :: text
         call this%text%set(text)
+        call this%invalidate_size_hint()
     end subroutine forge_label_set_text
 
     function forge_label_get_text(this) result(text)
@@ -387,6 +436,18 @@ contains
         character(len=:), allocatable :: text
         text = this%text%get()
     end function forge_label_get_text
+
+    subroutine forge_label_calculate_size_hint(this)
+        class(forge_label), intent(inout) :: this
+        integer :: text_width, text_height
+        character(len=:), allocatable :: text
+
+        text = this%get_text()
+        text_width = len(text) * 8  ! Approximate character width
+        text_height = 16  ! Approximate character height
+
+        call this%set_size_hint(text_width, text_height)
+    end subroutine forge_label_calculate_size_hint
 
     ! ========== Entry Methods ==========
 

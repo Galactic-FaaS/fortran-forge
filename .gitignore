@@ -213,3 +213,29 @@ pip-log.txt
 
 #Mr Developer
 .mr.developer.cfg
+
+#############
+## Fortran & CMake build artifacts
+#############
+
+# Fortran module/object files
+*.o
+*.obj
+*.mod
+*.smod
+
+# CMake generators and build dirs
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+Makefile
+
+# Common build/output dirs
+build/
+out/
+
+# Ninja/Meson (if used)
+.ninja*
+.meson/
